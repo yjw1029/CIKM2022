@@ -28,14 +28,12 @@ def main(args):
 
 if __name__ == "__main__":
     args = parse_args()
-    log_path = Path(args.log_path) 
     out_path = Path(args.out_path) 
     data_path = Path(args.data_path)
 
-    log_path.mkdir(exist_ok=True, parents=True)
     out_path.mkdir(exist_ok=True, parents=True)
 
-    setuplogger(args, log_path)
+    setuplogger(args)
 
     logging.info(args)
 
