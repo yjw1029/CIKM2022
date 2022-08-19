@@ -1,10 +1,12 @@
 from pathlib import Path
 import numpy as np
 import os
+import logging
 
 import torch
 from torch import nn
 from torch_geometric.loader import DataLoader
+from torch_geometric.transforms import VirtualNode
 
 from model import get_model_cls
 from metrics import get_metric
@@ -41,6 +43,8 @@ class BaseClient:
 
         self.in_channels = data["train"][0].x.shape[-1]
 
+        data = self.preprocess_data(data)
+
         dataloader_dict = {}
         dataloader_dict["train"] = DataLoader(
             data["train"], self.args.local_batch_size, shuffle=True
@@ -53,6 +57,14 @@ class BaseClient:
         )
 
         self.dataloader_dict = dataloader_dict
+
+    def preprocess_data(self, data):
+        if self.args.pooling == "virtual_node":
+            logging.info("[+] Apply virtual node. Preprocessing data")
+            transform = VirtualNode()
+            for split in ["train", "val", "test"]:
+                data[split] = list(map(transform, data[split]))
+        return data
 
     def init_model(self):
         model_cls = get_model_cls(self.args.model_cls)
