@@ -59,11 +59,11 @@ class BaseClient:
         self.model = model_cls(
             self.in_channels,
             self.out_channels,
-            hidden=64,
-            max_depth=2,
-            dropout=0.2,
+            hidden=self.args.hidden,
+            max_depth=self.args.max_depth,
+            dropout=self.args.dropout,
             gnn=self.args.model_cls,
-            pooling="mean",
+            pooling=self.args.pooling,
         )
 
         if "classification" in self.task_type.lower():

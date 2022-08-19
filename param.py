@@ -70,4 +70,22 @@ def parse_args():
         default=["encoder_atom", "encoder", "clf"],
     )
 
+    parser.add_argument(
+        "--enable-finetune", type=str2bool, default=False
+    )
+
+    # model parameters
+    parser.add_argument(
+        "--max-depth", type=int, default=2
+    )
+    parser.add_argument(
+        "--hidden", type=int, default=64
+    )
+    parser.add_argument(
+        "--dropout", type=float, default=0.2
+    )
+    parser.add_argument(
+        "--pooling", type=str, default="mean"
+    )
+
     return parser.parse_args()

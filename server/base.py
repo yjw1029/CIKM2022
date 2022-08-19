@@ -22,11 +22,11 @@ class BaseServer:
         self.model = model_cls(
             1,
             1,
-            hidden=64,
-            max_depth=2,
-            dropout=0.2,
+            hidden=self.args.hidden,
+            max_depth=self.args.max_depth,
+            dropout=self.args.dropout,
             gnn=self.args.model_cls,
-            pooling="mean",
+            pooling=self.args.pooling,
         )
 
         self.model = self.model.cuda()

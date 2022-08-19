@@ -30,6 +30,14 @@ class AtomEncoder(torch.nn.Module):
             x_embedding += self.atom_embedding_list[i](x[:, i])
         return x_embedding
 
+class VirtualNodePooling(torch.nn.Module):
+    def __init__(self):
+        super(VirtualNodePooling, self).__init__()
+
+    def forward(self, x, batch):
+        batch_diff = batch - batch[(torch.arange(len(batch)) + 1) % len(batch)]
+        last_indices = batch_diff != 0
+        return x[last_indices]
 
 class GNN_Net_Graph(torch.nn.Module):
     r"""GNN model with pre-linear layer, pooling layer
@@ -98,6 +106,8 @@ class GNN_Net_Graph(torch.nn.Module):
             self.pooling = global_mean_pool
         elif pooling == 'max':
             self.pooling = global_max_pool
+        elif pooling == "virtual_node":
+            self.pooling = VirtualNodePooling()
         else:
             raise ValueError(f'Unsupported pooling type: {pooling}.')
         # Output layer

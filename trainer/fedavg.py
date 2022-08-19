@@ -42,7 +42,12 @@ class FedAvgTrainer(BaseTrainer):
 
     def evaluate_all_clients(self, step):
         all_relative_impr = []
+        
+        server_state_dict = self.server.model.state_dict()
         for uid in range(1, self.args.clients_num + 1):
+            self.clients[uid].load_model(
+                server_state_dict, filter_list=self.args.param_filter_list
+            )
             eval_rslt = self.clients[uid].eval()
 
             if "relative_impr" in eval_rslt:
