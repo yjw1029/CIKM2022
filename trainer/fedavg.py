@@ -1,4 +1,5 @@
 import logging
+import torch
 
 from .base import BaseTrainer
 from utils import grad_to_vector
@@ -36,9 +37,16 @@ class FedAvgTrainer(BaseTrainer):
             if step % self.args.eval_steps == 0:
                 self.evaluate_all_clients(step)
 
+        self.save_predictions_all_clients(self)
+
+
     def evaluate_all_clients(self, step):
+        all_relative_impr = []
         for uid in range(1, self.args.clients_num + 1):
             eval_rslt = self.clients[uid].eval()
+
+            if "relative_impr" in eval_rslt:
+                all_relative_impr.append(eval_rslt["relative_impr"])
 
             eval_str = "; ".join(
                 [f"{metric}: {value}" for metric, value in eval_rslt.items()]
@@ -48,6 +56,16 @@ class FedAvgTrainer(BaseTrainer):
             if "nan" in eval_str:
                 logging.info(f"client_{uid} gets nan. Stop training")
                 exit()
+        
+        if len(all_relative_impr) > 0:
+            overall_impr = torch.mean(torch.stack(all_relative_impr))
+            logging.info(f"step {step} overall relative_impr {overall_impr}")
+
+    def save_predictions_all_clients(self):
+        for uid in range(1, self.args.clients_num+1):
+            logging.info(f"[+] saving predictions...")
+            self.clients[uid].save_prediction(self.args.out_path)
+            logging.info(f"[-] finish saving predictions for client_{uid}")
 
     def finetune(self):
         pass
