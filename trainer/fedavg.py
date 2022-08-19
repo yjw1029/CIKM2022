@@ -37,7 +37,7 @@ class FedAvgTrainer(BaseTrainer):
             if step % self.args.eval_steps == 0:
                 self.evaluate_all_clients(step)
 
-        self.save_predictions_all_clients(self)
+        self.save_predictions_all_clients()
 
 
     def evaluate_all_clients(self, step):
