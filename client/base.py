@@ -25,6 +25,7 @@ class BaseClient:
             else self.args.local_lr
         )
         self.major_metric = self.client_config["eval"]["major_metric"]
+        self.base_metric = self.client_config["eval"]["base"]
 
         self.init_dataset()
         self.init_model()
@@ -80,7 +81,11 @@ class BaseClient:
     def init_metrics(self):
         self.metric_cals = {}
         for metric in self.client_config["eval"]["metrics"]:
-            self.metric_cals[metric] = get_metric(metric)()
+            # compute relative_impr at the final step of evaluation
+            if metric == "relative_impr":
+                self.metric_cals[metric] = None
+            else:
+                self.metric_cals[metric] = get_metric(metric)()
 
     def train(self, reset_optim=True):
         if reset_optim:
@@ -132,11 +137,18 @@ class BaseClient:
                 label = label.unsqueeze(0)
 
             for metric in self.metric_cals:
-                self.metric_cals[metric].update(pred, label)
+                if metric != "relative_impr":
+                    self.metric_cals[metric].update(pred, label)
 
         rslt = {}
         for metric in self.metric_cals:
-            rslt[metric] = self.metric_cals[metric].compute()
+            if metric != "relative_impr":
+                rslt[metric] = self.metric_cals[metric].compute()
+
+        if "relative_impr" in self.metric_cals:
+            rslt["relative_impr"] = (
+                self.base_metric - rslt[self.major_metric]
+            ) / self.base_metric
 
         return rslt
 

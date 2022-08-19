@@ -45,5 +45,9 @@ class FedAvgTrainer(BaseTrainer):
             )
             logging.info(f"client_{uid} step {step}: {eval_str}")
 
+            if "nan" in eval_str:
+                logging.info(f"client_{uid} gets nan. Stop training")
+                exit()
+
     def finetune(self):
         pass
