@@ -11,7 +11,6 @@ class LocalTrainer(BaseTrainer):
     def run(self):
         # local training clinet_by_client
         for uid in range(1, self.args.clients_num+1):
-            uid = 3
             best_rslt = None
             best_state_dict = None
             best_rslt_str = None
