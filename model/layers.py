@@ -3,6 +3,32 @@ import torch.nn.functional as F
 from torch.nn import Linear, ModuleList
 from torch.nn import BatchNorm1d, Identity
 
+EMD_DIM = 200
+
+
+class AtomEncoder(torch.nn.Module):
+    def __init__(self, in_channels, hidden):
+        super(AtomEncoder, self).__init__()
+        self.atom_embedding_list = torch.nn.ModuleList()
+        for i in range(in_channels):
+            emb = torch.nn.Embedding(EMD_DIM, hidden)
+            torch.nn.init.xavier_uniform_(emb.weight.data)
+            self.atom_embedding_list.append(emb)
+
+    def forward(self, x):
+        x_embedding = 0
+        for i in range(x.shape[1]):
+            x_embedding += self.atom_embedding_list[i](x[:, i])
+        return x_embedding
+
+class VirtualNodePooling(torch.nn.Module):
+    def __init__(self):
+        super(VirtualNodePooling, self).__init__()
+
+    def forward(self, x, batch):
+        batch_diff = batch - batch[(torch.arange(len(batch)) + 1) % len(batch)]
+        last_indices = batch_diff != 0
+        return x[last_indices]
 
 class MLP(torch.nn.Module):
     """

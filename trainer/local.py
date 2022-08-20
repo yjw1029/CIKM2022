@@ -10,10 +10,11 @@ class LocalTrainer(BaseTrainer):
 
     def run(self):
         # local training clinet_by_client
-        best_rslt = {}
         for uid in range(1, self.args.clients_num+1):
+            uid = 3
             best_rslt = None
             best_state_dict = None
+            best_rslt_str = None
             for epoch in range(self.args.max_steps):
                 # local train 1 epoch
                 self.clients[uid].train(reset_optim=False)
@@ -25,10 +26,12 @@ class LocalTrainer(BaseTrainer):
                 if best_rslt is None or eval_rslt[self.clients[uid].major_metric] < best_rslt:
                     best_rslt = eval_rslt[self.clients[uid].major_metric]
                     best_state_dict = self.clients[uid].model.state_dict()
+                    best_rslt_str = eval_str
             
-            logging.info(f"[+] client_{uid} best rslt: {best_rslt}. saving predictions...")
+            logging.info(f"[+] client_{uid} best rslt: {best_rslt_str}. saving predictions...")
             self.clients[uid].load_model(best_state_dict)
             self.clients[uid].save_prediction(self.args.out_path)
+            self.clients[uid].save_best_rslt(uid, best_rslt_str, self.args.out_path)
             logging.info(f"[-] finish saving predictions for client_{uid}")
             del self.clients[uid]
 

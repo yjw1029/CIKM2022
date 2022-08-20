@@ -1,20 +1,55 @@
 import torch
+from torch.nn import ModuleList
 import torch.nn.functional as F
 from torch.nn import Linear, Sequential
+
+from torch_geometric.nn import RGCNConv
 from torch_geometric.data import Data
 from torch_geometric.data.batch import Batch
 from torch_geometric.nn.glob import global_add_pool, global_mean_pool, \
     global_max_pool
 
-from model.gcn import GCN_Net
-from model.sage import SAGE_Net
-from model.gat import GAT_Net
-from model.gin import GIN_Net
-from model.gpr import GPR_Net
 from model.layers import AtomEncoder, VirtualNodePooling
 
 
-class GNN_Net_Graph(torch.nn.Module):
+class RGCN_Net(torch.nn.Module):
+    def __init__(self,
+                 in_channels,
+                 out_channels,
+                 num_relations,
+                 hidden=64,
+                 max_depth=2,
+                 dropout=.0):
+        super(RGCN_Net, self).__init__()
+        self.convs = ModuleList()
+        for i in range(max_depth):
+            if i == 0:
+                self.convs.append(
+                    RGCNConv(in_channels, hidden, num_relations=num_relations))
+            elif (i + 1) == max_depth:
+                self.convs.append(
+                    RGCNConv(hidden, out_channels, num_relations=num_relations))
+            else:
+                self.convs.append(
+                    RGCNConv(hidden, hidden, num_relations=num_relations))
+        self.dropout = dropout
+
+    def forward(self, data):
+        if isinstance(data, Data):
+            x, edge_index, edge_type = data.x, data.edge_index, data.edge_type
+        elif isinstance(data, tuple):
+            x, edge_index, edge_type = data
+        else:
+            raise TypeError('Unsupported data type!')
+
+        for i, conv in enumerate(self.convs):
+            x = conv(x, edge_index, edge_type)
+            if (i + 1) == len(self.convs):
+                break
+            x = F.relu(F.dropout(x, p=self.dropout, training=self.training))
+        return x
+
+class RGCN_Net_Graph(torch.nn.Module):
     r"""GNN model with pre-linear layer, pooling layer
         and output layer for graph classification tasks.
 
@@ -30,50 +65,25 @@ class GNN_Net_Graph(torch.nn.Module):
     def __init__(self,
                  in_channels,
                  out_channels,
+                 num_relations,
                  hidden=64,
                  max_depth=2,
                  dropout=.0,
-                 gnn='gcn',
                  pooling='add'):
-        super(GNN_Net_Graph, self).__init__()
+        super(RGCN_Net_Graph, self).__init__()
         self.dropout = dropout
         # Embedding (pre) layer
         self.encoder_atom = AtomEncoder(in_channels, hidden)
         self.encoder = Linear(in_channels, hidden)
         # GNN layer
-        if gnn == 'gcn':
-            self.gnn = GCN_Net(in_channels=hidden,
-                               out_channels=hidden,
-                               hidden=hidden,
-                               max_depth=max_depth,
-                               dropout=dropout)
-        elif gnn == 'sage':
-            self.gnn = SAGE_Net(in_channels=hidden,
-                                out_channels=hidden,
-                                hidden=hidden,
-                                max_depth=max_depth,
-                                dropout=dropout)
-        elif gnn == 'gat':
-            self.gnn = GAT_Net(in_channels=hidden,
-                               out_channels=hidden,
-                               hidden=hidden,
-                               max_depth=max_depth,
-                               dropout=dropout)
-        elif gnn == 'gin':
-            self.gnn = GIN_Net(in_channels=hidden,
-                               out_channels=hidden,
-                               hidden=hidden,
-                               max_depth=max_depth,
-                               dropout=dropout)
-        elif gnn == 'gpr':
-            self.gnn = GPR_Net(in_channels=hidden,
-                               out_channels=hidden,
-                               hidden=hidden,
-                               K=max_depth,
-                               dropout=dropout)
-        else:
-            raise ValueError(f'Unsupported gnn type: {gnn}.')
-
+        
+        self.gnn = RGCN_Net(in_channels=hidden,
+                           out_channels=hidden,
+                           num_relations=num_relations,
+                           hidden=hidden,
+                           max_depth=max_depth,
+                           dropout=dropout)
+        
         # Pooling layer
         if pooling == 'add':
             self.pooling = global_add_pool
@@ -85,15 +95,16 @@ class GNN_Net_Graph(torch.nn.Module):
             self.pooling = VirtualNodePooling()
         else:
             raise ValueError(f'Unsupported pooling type: {pooling}.')
+
         # Output layer
         self.linear = Sequential(Linear(hidden, hidden), torch.nn.ReLU())
         self.clf = Linear(hidden, out_channels)
 
     def forward(self, data):
         if isinstance(data, Batch):
-            x, edge_index, batch = data.x, data.edge_index, data.batch
+            x, edge_index, edge_type, batch = data.x, data.edge_index, data.edge_type, data.batch
         elif isinstance(data, tuple):
-            x, edge_index, batch = data
+            x, edge_index, edge_type, batch = data
         else:
             raise TypeError('Unsupported data type!')
 
@@ -102,8 +113,10 @@ class GNN_Net_Graph(torch.nn.Module):
         else:
             x = self.encoder(x)
 
-        x = self.gnn((x, edge_index))
-        x = self.pooling(x, batch)
+        x = self.gnn((x, edge_index, edge_type))
+        batch_diff = batch - batch[(torch.arange(len(batch)) + 1) % len(batch)]
+        last_indices = batch_diff != 0
+        x = x[last_indices]
         x = self.linear(x)
         x = F.dropout(x, self.dropout, training=self.training)
         x = self.clf(x)

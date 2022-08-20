@@ -219,3 +219,7 @@ class BaseClient:
                 else:
                     line = [self.uid, y_ind] + list(y_pred)
                 file.write(",".join([str(_) for _ in line]) + "\n")
+
+    def save_best_rslt(self, uid, eval_str, path):
+        with open(os.path.join(path, "eval_rslt.txt"), "a") as file:
+            file.write(f"client {uid} best evaluation result: {eval_str} \n")
