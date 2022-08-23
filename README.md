@@ -20,7 +20,7 @@ python main.py --trainer-cls FedAvgTrainer --client-cls BaseClient \
       --clients-num 13 --clients-per-step 13 --max-steps 100
 ```
 
-# Best isolated training (51.1)
+* Best isolated training (51.1)
 ```bash
 python main.py --trainer-cls LocalTrainer \
     --local-optim-cls Adam --max-steps 1000 --local-epoch 1 \
