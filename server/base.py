@@ -35,18 +35,18 @@ class BaseServer:
         self.agg = get_agg_cls(self.args.agg_cls)(self.args, self.model)
 
     def init_client_sampler(self):
-        if self.args.clients_per_step < self.args.clients_num:
+        if self.args.clients_per_step < len(self.args.clients):
             g = random.Random(self.args.client_sample_seed)
             return functools.partial(
                 g.sample,
-                list(range(1, self.args.clients_num + 1)),
+                self.args.clients,
                 self.args.clients_per_step,
             )
-        elif self.args.clients_per_step == self.args.clients_num:
+        elif self.args.clients_per_step == len(self.args.clients):
             return lambda x: x
         else:
             raise ValueError(
-                f"clients_per_step should be smaller clients_num. get {self.args.clients_per_step} and {self.args.clients_num}."
+                f"clients_per_step should be smaller clients_num. get {self.args.clients_per_step} and {len(self.args.clients)}."
             )
 
     def sample_clients(self):

@@ -1,0 +1,238 @@
+client_1:
+  client_cls: RGCNClient
+  model:
+    out_channels: 2
+    task: graphClassification
+    model_cls: rgcn
+    hidden: 64
+    max_depth: 6
+    pooling: virtual_node
+  criterion:
+    type: CrossEntropyLoss
+  train:
+    optimizer:
+      lr: 0.001
+  eval:
+    metrics: ['error_rate', 'relative_impr']
+    major_metric: 'error_rate'
+    base: 0.263789
+client_2:
+  client_cls: BaseClient
+  model:
+    out_channels: 2
+    task: graphClassification
+    model_cls: gin
+    hidden: 256
+    max_depth: 4
+    pooling: mean
+  criterion:
+    type: CrossEntropyLoss
+  train:
+    optimizer:
+      lr: 0.001
+  eval:
+    metrics: ['error_rate', 'relative_impr']
+    major_metric: 'error_rate'
+    base: 0.289617
+client_3:
+  client_cls: BaseClient
+  model:
+    out_channels: 2
+    task: graphClassification
+    model_cls: gin
+    hidden: 256
+    max_depth: 6
+    pooling: virtual_node
+  criterion:
+    type: CrossEntropyLoss
+  train:
+    optimizer:
+      lr: 0.001
+  eval:
+    metrics: ['error_rate', 'relative_impr']
+    major_metric: 'error_rate'
+    base: 0.355404
+client_4:
+  client_cls: RGCNClient
+  model:
+    out_channels: 2
+    task: graphClassification
+    model_cls: rgcn
+    hidden: 64
+    max_depth: 4
+    pooling: virtual_node
+  criterion:
+    type: CrossEntropyLoss
+  train:
+    optimizer:
+      lr: 0.001
+  eval:
+    metrics: ['error_rate', 'relative_impr']
+    major_metric: 'error_rate'
+    base: 0.176471
+client_5:
+  client_cls: BaseClient
+  model:
+    out_channels: 2
+    task: graphClassification
+    model_cls: gin
+    hidden: 512
+    max_depth: 4
+    pooling: mean
+  criterion:
+    type: CrossEntropyLoss
+  train:
+    optimizer:
+      lr: 0.001
+  eval:
+    metrics: ['error_rate', 'relative_impr']
+    major_metric: 'error_rate'
+    base: 0.396825
+client_6:
+  client_cls: RGCNClient
+  model:
+    out_channels: 2
+    task: graphClassification
+    model_cls: rgcn
+    hidden: 256
+    max_depth: 4
+    pooling: mean
+  criterion:
+    type: CrossEntropyLoss
+  train:
+    optimizer:
+      lr: 0.001
+  eval:
+    metrics: ['error_rate', 'relative_impr']
+    major_metric: 'error_rate'
+    base: 0.26158
+client_7:
+  client_cls: BaseClient
+  model:
+    out_channels: 2
+    task: graphClassification
+    model_cls: gin
+    hidden: 256
+    max_depth: 10
+    pooling: mean
+  criterion:
+    type: CrossEntropyLoss
+  train:
+    optimizer:
+      lr: 0.001
+  eval:
+    metrics: ['error_rate', 'relative_impr']
+    major_metric: 'error_rate'
+    base: 0.302378
+client_8:
+  client_cls: RGCNClient
+  model:
+    out_channels: 2
+    task: graphClassification
+    model_cls: rgcn
+    hidden: 256
+    max_depth: 6
+    pooling: virtual_node
+  criterion:
+    type: CrossEntropyLoss
+  train:
+    optimizer:
+      lr: 0.001
+  eval:
+    metrics: ['error_rate', 'relative_impr']
+    major_metric: 'error_rate'
+    base: 0.211538
+client_9:
+  client_cls: RGCNClient
+  model:
+    out_channels: 1
+    task: graphRegression
+    model_cls: rgcn
+    hidden: 256
+    max_depth: 6
+    pooling: virtual_node
+  criterion:
+    type: MSELoss
+  train:
+    optimizer:
+      lr: 0.001
+  eval:
+    metrics: ['mse', 'relative_impr']
+    major_metric: 'mse'
+    base: 0.059199
+client_10:
+  client_cls: RGCNClient
+  model:
+    out_channels: 10
+    task: graphRegression
+    model_cls: rgcn
+    hidden: 64
+    max_depth: 4
+    pooling: virtual_node
+  criterion:
+    type: MSELoss
+  train:
+    optimizer:
+      lr: 0.001
+  grad:
+    grad_clip: 1.0
+  eval:
+    metrics: ['mse', 'relative_impr']
+    major_metric: 'mse'
+    base: 0.007083
+client_11:
+  client_cls: BaseClient
+  model:
+    out_channels: 1
+    task: graphRegression
+    model_cls: gin
+    hidden: 128
+    max_depth: 6
+    pooling: mean
+  criterion:
+    type: MSELoss
+  train:
+    optimizer:
+      lr: 0.001
+  eval:
+    metrics: ['mse', 'relative_impr']
+    major_metric: 'mse'
+    base: 0.734011
+client_12:
+  client_cls: BaseClient
+  model:
+    out_channels: 1
+    task: graphRegression
+    model_cls: gin
+    hidden: 256
+    max_depth: 4
+    pooling: virtual_node
+  criterion:
+    type: MSELoss
+  train:
+    optimizer:
+      lr: 0.001
+  eval:
+    metrics: ['mse', 'relative_impr']
+    major_metric: 'mse'
+    base: 1.361326
+client_13:
+  client_cls: BaseClient
+  model:
+    out_channels: 12
+    task: graphRegression
+    model_cls: gin
+    hidden: 512
+    max_depth: 6
+    pooling: mean
+  criterion:
+    type: MSELoss
+  train:
+    optimizer:
+      lr: 0.001
+  grad:
+    grad_clip: 1.0
+  eval:
+    metrics: ['mse', 'relative_impr']
+    major_metric: 'mse'
+    base: 0.004389
