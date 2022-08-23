@@ -9,10 +9,13 @@ class BaseTrainer:
         with open(self.args.client_config_file, 'r', encoding="utf-8") as f:
             client_configs = yaml.safe_load(f)
 
-        client_cls = get_client_cls(self.args.client_cls)
         self.clients = {}
-        for uid in range(1, self.args.clients_num + 1):
+        for uid in self.args.clients:
             client_config = client_configs[f"client_{uid}"]
+            if self.args.client_cls is None:
+                client_cls = get_client_cls(client_config["client_cls"])
+            else:
+                client_cls = get_client_cls(self.args.client_cls)
             self.clients[uid] = client_cls(self.args, client_config, uid)
             logging.info(f"[-] finish init client_{uid}")
             logging.info(client_config)

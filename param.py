@@ -40,7 +40,6 @@ def parse_args():
     parser.add_argument("--server-cls", type=str, default=None)
     parser.add_argument("--client-cls", type=str, default=None)
     parser.add_argument("--agg-cls", type=str, default=None)
-    parser.add_argument("--model-cls", type=str, default="gin")
     parser.add_argument("--local-optim-cls", type=str, default=None)
     parser.add_argument("--global-optim-cls", type=str, default=None)
 
@@ -56,7 +55,7 @@ def parse_args():
     parser.add_argument("--global-lr", type=float, default=None)
     parser.add_argument("--local-lr", type=float, default=None)
 
-    parser.add_argument("--clients-num", type=int, default=13)
+    parser.add_argument("--clients", type=int, nargs="+", default=list(range(1, 14)))
     parser.add_argument("--clients-per-step", type=int, default=13)
     parser.add_argument(
         "--client-config-file", type=str, default="./config/local_train_per_client.yaml"
@@ -75,17 +74,18 @@ def parse_args():
     )
 
     # model parameters
+    parser.add_argument("--model-cls", type=str, default=None)
     parser.add_argument(
-        "--max-depth", type=int, default=2
+        "--max-depth", type=int, default=None
     )
     parser.add_argument(
-        "--hidden", type=int, default=64
+        "--hidden", type=int, default=None
     )
     parser.add_argument(
-        "--dropout", type=float, default=0.2
+        "--dropout", type=float, default=None
     )
     parser.add_argument(
-        "--pooling", type=str, default="mean"
+        "--pooling", type=str, default=None
     )
 
     return parser.parse_args()

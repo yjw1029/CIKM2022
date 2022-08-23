@@ -55,4 +55,3 @@ def dict_to_vector(state_dict, model, filter_list=[]):
         if param.requires_grad and not is_name_in_list(name, filter_list):
             vec.append(state_dict[name].detach().view(-1))
     return torch.cat(vec)
-

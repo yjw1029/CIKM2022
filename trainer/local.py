@@ -10,7 +10,7 @@ class LocalTrainer(BaseTrainer):
 
     def run(self):
         # local training clinet_by_client
-        for uid in range(1, self.args.clients_num+1):
+        for uid in self.args.clients:
             best_rslt = None
             best_state_dict = None
             best_rslt_str = None

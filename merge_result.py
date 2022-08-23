@@ -1,12 +1,13 @@
 import argparse
 from pathlib import Path
 import re
-import pandas as pd
+from datetime import datetime
+import pytz
 
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--out-path", type=str, default="../amlt/cikm2022")
-    parser.add_argument("--save-path", type=str, default="../amlt/merge_rslt")
+    parser.add_argument("--save-path", type=str, default=None)
 
     return parser.parse_args()
 
@@ -17,8 +18,8 @@ def parse_eval_rslt(file_name):
         for line in f:
             z = re.match("client (\d+) .*relative_impr: (-?\d.\d+e?-?\d+]?) \n", line)
             if z:
-                client_num, best_impr = z.groups()
-                clients_rslt[int(client_num)] = float(best_impr)
+                client_id, best_impr = z.groups()
+                clients_rslt[int(client_id)] = float(best_impr)
     return clients_rslt
 
 def sort_task_by_impr(task_rslts):
@@ -55,6 +56,12 @@ def merge_best_rslt(out_path, sorted_rslt_tasks, save_path):
 
 
 def main(args):
+    if args.save_path is None:
+        tz_NY = pytz.timezone('Asia/Shanghai')
+        now = datetime.now(tz_NY)
+        current_time = now.strftime("%Y%m%d%H%M")
+        args.save_path = "../amlt/merge_rslt_" + current_time
+
     out_path = Path(args.out_path)
     save_path = Path(args.save_path)
 

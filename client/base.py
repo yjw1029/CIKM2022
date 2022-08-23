@@ -29,10 +29,40 @@ class BaseClient:
         self.major_metric = self.client_config["eval"]["major_metric"]
         self.base_metric = self.client_config["eval"]["base"]
 
+        self.init_model_param()
+
         self.init_dataset()
         self.init_model()
         self.init_optimizer()
         self.init_metrics()
+
+    def init_model_param(self):
+        self.model_cls = (
+            self.args.model_cls
+            if self.args.model_cls
+            else self.client_config["model"]["model_cls"]
+        )
+        self.hidden = (
+            self.args.hidden
+            if self.args.hidden
+            else self.client_config["model"]["hidden"]
+        )
+        self.max_depth = (
+            self.args.max_depth
+            if self.args.max_depth
+            else self.client_config["model"]["max_depth"]
+        )
+        self.dropout = (
+            self.args.dropout
+            if self.args.dropout
+            else self.client_config["model"]["dropout"]
+        )
+        self.pooling = (
+            self.args.pooling
+            if self.args.pooling
+            else self.client_config["model"]["pooling"]
+        )
+
 
     def init_dataset(self):
         data_path = Path(self.args.data_path) / "CIKM22Competition" / str(self.uid)
@@ -59,7 +89,7 @@ class BaseClient:
         self.dataloader_dict = dataloader_dict
 
     def preprocess_data(self, data):
-        if self.args.pooling == "virtual_node":
+        if self.pooling == "virtual_node":
             logging.info("[+] Apply virtual node. Preprocessing data")
             transform = VirtualNode()
             for split in ["train", "val", "test"]:
@@ -67,15 +97,15 @@ class BaseClient:
         return data
 
     def init_model(self):
-        model_cls = get_model_cls(self.args.model_cls)
+        model_cls = get_model_cls(self.model_cls)
         self.model = model_cls(
             self.in_channels,
             self.out_channels,
-            hidden=self.args.hidden,
-            max_depth=self.args.max_depth,
-            dropout=self.args.dropout,
-            gnn=self.args.model_cls,
-            pooling=self.args.pooling,
+            hidden=self.hidden,
+            max_depth=self.max_depth,
+            dropout=self.dropout,
+            gnn=self.model_cls,
+            pooling=self.pooling,
         )
 
         if "classification" in self.task_type.lower():
