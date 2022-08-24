@@ -37,7 +37,7 @@ if __name__ == "__main__":
 
     logging.info(args)
 
-    os.environ["CUDA_VISIBLE_DEVICES"] = args.device
+    torch.cuda.set_device(int(args.device))
     os.environ["WANDB_API_KEY"] = args.wandb_api_key
 
     main(args)
