@@ -1,6 +1,6 @@
 # project specific
 doc/build
-
+.nfs*
 # ml log
 wandb/
 

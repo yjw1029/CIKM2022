@@ -84,15 +84,6 @@ class RGINConv(MessagePassing):
                 torch.Tensor(num_bases, in_channels[0], out_channels))
             self.comp = Parameter(torch.Tensor(num_relations, num_bases))
 
-        elif num_blocks is not None:
-            assert (in_channels[0] % num_blocks == 0
-                    and out_channels % num_blocks == 0)
-            self.weight = Parameter(
-                torch.Tensor(num_relations, num_blocks,
-                             in_channels[0] // num_blocks,
-                             out_channels // num_blocks))
-            self.register_parameter('comp', None)
-
         else:
             self.MLP = [MLP([self.in_channels_l, hidden, out_channels], batch_norm=True).cuda() for i in range(num_relations)]
             self.register_parameter('comp', None)
@@ -121,23 +112,7 @@ class RGINConv(MessagePassing):
 
     def forward(self, x: Union[OptTensor, Tuple[OptTensor, Tensor]],
                 edge_index: Adj, edge_type: OptTensor = None):
-        r"""
-        Args:
-            x: The input node features. Can be either a :obj:`[num_nodes,
-                in_channels]` node feature matrix, or an optional
-                one-dimensional node index tensor (in which case input features
-                are treated as trainable node embeddings).
-                Furthermore, :obj:`x` can be of type :obj:`tuple` denoting
-                source and destination node features.
-            edge_index (LongTensor or SparseTensor): The edge indices.
-            edge_type: The one-dimensional relation type/index for each edge in
-                :obj:`edge_index`.
-                Should be only :obj:`None` in case :obj:`edge_index` is of type
-                :class:`torch_sparse.tensor.SparseTensor`.
-                (default: :obj:`None`)
-        """
 
-        # Convert input features to a pair of node features or node indices.
         x_l: OptTensor = None
         if isinstance(x, tuple):
             x_l = x[0]

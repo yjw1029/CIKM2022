@@ -18,12 +18,12 @@ class HashTensorWrapper:
         return torch.all(self.tensor == other.tensor)
 
 
-class RGCNClient(BaseClient):
+class RGNNClient(BaseClient):
     def __init__(self, args, client_config, uid):
         super().__init__(args, client_config, uid)
         assert (
-            self.model_cls == "rgcn"
-        ), f"model_cls must be rgcn for RGCNClient, but get {self.model_cls}"
+            self.model_cls == "rgcn" or self.model_cls == "rgin"
+        ), f"model_cls must be rgcn or rgin for RGNNClient, but get {self.model_cls}"
 
     def preprocess_data(self, data):
         # add virtual node if pooling as virtual node
