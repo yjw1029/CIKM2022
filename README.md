@@ -30,8 +30,8 @@ python main.py --trainer-cls LocalTrainer \
 
 # RGIN
 ```bash
-python main.py --trainer-cls LocalTrainer --client-cls RGINClient \
+python main.py --trainer-cls LocalTrainer --client-cls RGNNClient \
 --local-optim-cls Adam --max-steps 1000 --local-epoch 1 \
---dropout 0.2 --max-depth 4 --hidden 256 --clients-per-step 12 \
+--dropout 0.2 --max-depth 4 --hidden 256 --clients-per-step 13 \
 --model-cls rgin --pooling virtual_node
 ```

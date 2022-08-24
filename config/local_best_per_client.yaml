@@ -1,5 +1,5 @@
 client_1:
-  client_cls: RGCNClient
+  client_cls: RGNNClient
   model:
     out_channels: 2
     task: graphClassification
@@ -53,7 +53,7 @@ client_3:
     major_metric: 'error_rate'
     base: 0.355404
 client_4:
-  client_cls: RGCNClient
+  client_cls: RGNNClient
   model:
     out_channels: 2
     task: graphClassification
@@ -89,7 +89,7 @@ client_5:
     major_metric: 'error_rate'
     base: 0.396825
 client_6:
-  client_cls: RGCNClient
+  client_cls: RGNNClient
   model:
     out_channels: 2
     task: graphClassification
@@ -125,7 +125,7 @@ client_7:
     major_metric: 'error_rate'
     base: 0.302378
 client_8:
-  client_cls: RGCNClient
+  client_cls: RGNNClient
   model:
     out_channels: 2
     task: graphClassification
@@ -143,7 +143,7 @@ client_8:
     major_metric: 'error_rate'
     base: 0.211538
 client_9:
-  client_cls: RGCNClient
+  client_cls: RGNNClient
   model:
     out_channels: 1
     task: graphRegression
@@ -161,7 +161,7 @@ client_9:
     major_metric: 'mse'
     base: 0.059199
 client_10:
-  client_cls: RGCNClient
+  client_cls: RGNNClient
   model:
     out_channels: 10
     task: graphRegression
