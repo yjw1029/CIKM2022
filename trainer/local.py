@@ -14,6 +14,7 @@ class LocalTrainer(BaseTrainer):
             best_rslt = None
             best_state_dict = None
             best_rslt_str = None
+            best_step_distance=0
             for epoch in range(self.args.max_steps):
                 # local train 1 epoch
                 self.clients[uid].train(reset_optim=False)
@@ -22,10 +23,17 @@ class LocalTrainer(BaseTrainer):
                 eval_str = "; ".join([f"{metric}: {value}" for metric, value in eval_rslt.items()])
                 logging.info(f"client_{uid} epoch {epoch}: {eval_str}")
 
+                best_step_distance += 1
+
                 if best_rslt is None or eval_rslt[self.clients[uid].major_metric] < best_rslt:
+                    best_step_distance = 0
                     best_rslt = eval_rslt[self.clients[uid].major_metric]
                     best_state_dict = self.clients[uid].model.state_dict()
                     best_rslt_str = eval_str
+                
+                if self.args.patient<best_step_distance:
+                    logging.info(f"[+] client_{uid} early stops due to worse performance than best result over {self.args.patient} steps")
+                    break
             
             logging.info(f"[+] client_{uid} best rslt: {best_rslt_str}. saving predictions...")
             self.clients[uid].load_model(best_state_dict)

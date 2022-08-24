@@ -47,6 +47,7 @@ def parse_args():
     parser.add_argument("--train-log-steps", type=int, default=1)
     parser.add_argument("--max-steps", type=int, default=None)
     parser.add_argument("--num-workers", type=int, default=0)
+    parser.add_argument("--patient", type=int, default=10)
 
     parser.add_argument("--local-epoch", type=int, default=1)
     parser.add_argument("--local-batch-size", type=int, default=64)
