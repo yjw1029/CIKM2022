@@ -53,6 +53,10 @@ class MLP(torch.nn.Module):
             self.norms.append(
                 BatchNorm1d(out_channel) if batch_norm else Identity())
 
+    def reset_parameters(self):
+        for lin in self.linears:
+            torch.nn.init.xavier_uniform_(lin.weight)
+
     def forward(self, x):
         x = self.linears[0](x)
         for layer, norm in zip(self.linears[1:], self.norms[:-1]):
