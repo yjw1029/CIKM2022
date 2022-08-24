@@ -31,7 +31,7 @@ class LocalTrainer(BaseTrainer):
                     best_state_dict = self.clients[uid].model.state_dict()
                     best_rslt_str = eval_str
                 
-                if self.args.patient<best_step_distance:
+                if self.args.patient < best_step_distance:
                     logging.info(f"[+] client_{uid} early stops due to worse performance than best result over {self.args.patient} steps")
                     break
             
