@@ -96,7 +96,7 @@ client_6:
     model_cls: rgcn
     hidden: 256
     max_depth: 4
-    pooling: mean
+    pooling: virtual_node
   criterion:
     type: CrossEntropyLoss
   train:

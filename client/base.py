@@ -63,7 +63,6 @@ class BaseClient:
             else self.client_config["model"]["pooling"]
         )
 
-
     def init_dataset(self):
         data_path = Path(self.args.data_path) / "CIKM22Competition" / str(self.uid)
 
@@ -116,6 +115,10 @@ class BaseClient:
     def init_optimizer(self):
         self.optimizer_cls = eval(f"torch.optim.{self.args.local_optim_cls}")
         self.optimizer = self.optimizer_cls(self.model.parameters(), lr=self.lr)
+
+        if self.args.enable_finetune:
+            self.ft_optimizer_cls = eval(f"torch.optim.{self.args.ft_local_optim_cls}")
+            self.ft_optimizer = self.ft_optimizer_cls(self.model.parameters(), lr=self.ft_lr)
 
     def reset_optimizer(self):
         self.optimizer = self.optimizer_cls(self.model.parameters(), lr=self.lr)

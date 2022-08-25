@@ -116,8 +116,7 @@ class RGCN_Net_Graph(torch.nn.Module):
         x = self.gnn((x, edge_index, edge_type))
         batch_diff = batch - batch[(torch.arange(len(batch)) + 1) % len(batch)]
         last_indices = batch_diff != 0
-        import pdb
-        pdb.set_trace()
+        
         x = x[last_indices]
         x = self.linear(x)
         x = F.dropout(x, self.dropout, training=self.training)
