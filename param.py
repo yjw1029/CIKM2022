@@ -70,10 +70,6 @@ def parse_args():
         default=["encoder_atom", "encoder", "clf"],
     )
 
-    parser.add_argument(
-        "--enable-finetune", type=str2bool, default=False
-    )
-
     # model parameters
     parser.add_argument("--model-cls", type=str, default=None)
     parser.add_argument(
@@ -87,6 +83,17 @@ def parse_args():
     )
     parser.add_argument(
         "--pooling", type=str, default=None
+    )
+
+    # finetune 
+    parser.add_argument(
+        "--enable-finetune", type=str2bool, default=False
+    )
+    parser.add_argument(
+        "--ft-local-optim-cls", type=str, default=None
+    )
+    parser.add_argument(
+        "--ft-lr", type=float, default=None
     )
 
     return parser.parse_args()
