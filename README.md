@@ -17,7 +17,8 @@ python main.py --trainer-cls FedAvgTrainer --client-cls BaseClient \
       --server-cls BaseServer --agg-cls NonUniformAgg \
       --global-optim-cls Adam --global-lr 0.01 \
       --local-optim-cls SGD --local-epoch 1 --local-lr 0.01 \
-      --clients-num 13 --clients-per-step 13 --max-steps 100
+      --clients-per-step 13 --max-steps 100 --model-cls gin --hidden 64 --dropout 0.2 \
+      --max-depth 2 --pooling mean
 ```
 
 * Best isolated training (51.1)

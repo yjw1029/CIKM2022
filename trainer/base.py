@@ -12,7 +12,7 @@ class BaseTrainer:
         self.clients = {}
         for uid in self.args.clients:
             logging.info(f"[+] start initing client_{uid}")
-            logging.info(client_config)
+            logging.info(client_configs)
             client_config = client_configs[f"client_{uid}"]
             if self.args.client_cls is None:
                 client_cls = get_client_cls(client_config["client_cls"])
