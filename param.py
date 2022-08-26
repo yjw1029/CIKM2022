@@ -95,5 +95,11 @@ def parse_args():
     parser.add_argument(
         "--ft-lr", type=float, default=None
     )
+    parser.add_argument(
+        "--max-ft-steps", type=int, default=None
+    )
+    parser.add_argument(
+        "--ft-local-epoch", type=int, default=None
+    )
 
     return parser.parse_args()
