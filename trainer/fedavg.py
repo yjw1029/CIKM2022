@@ -16,7 +16,7 @@ class FedAvgTrainer(BaseTrainer):
             # all clients participant in
             server_state_dict = self.server.model.state_dict()
 
-            for uid in range(1, self.args.clients_num + 1):
+            for uid in range(1, self.args.clients_per_step + 1):
                 self.clients[uid].load_model(
                     server_state_dict, filter_list=self.args.param_filter_list
                 )
@@ -44,7 +44,7 @@ class FedAvgTrainer(BaseTrainer):
         all_relative_impr = []
         
         server_state_dict = self.server.model.state_dict()
-        for uid in range(1, self.args.clients_num + 1):
+        for uid in range(1, self.args.clients_per_step+ 1):
             self.clients[uid].load_model(
                 server_state_dict, filter_list=self.args.param_filter_list
             )
@@ -67,7 +67,7 @@ class FedAvgTrainer(BaseTrainer):
             logging.info(f"step {step} overall relative_impr {overall_impr}")
 
     def save_predictions_all_clients(self):
-        for uid in range(1, self.args.clients_num+1):
+        for uid in range(1, self.args.clients_per_step+1):
             logging.info(f"[+] saving predictions...")
             self.clients[uid].save_prediction(self.args.out_path)
             logging.info(f"[-] finish saving predictions for client_{uid}")

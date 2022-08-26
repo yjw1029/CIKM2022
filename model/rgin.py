@@ -17,6 +17,7 @@ from typing import Optional, Tuple, Union
 from torch_geometric.typing import Adj, OptTensor
 from torch_sparse import SparseTensor, masked_select_nnz, matmul
 from .layers import MLP
+import copy
 
 try:
     from pyg_lib.ops import segment_matmul  # noqa
@@ -80,16 +81,17 @@ class RGINConv(MessagePassing):
         self.in_channels_l = in_channels[0]
 
         if num_bases is not None:
-            self.weight = Parameter(
-                torch.Tensor(num_bases, in_channels[0], out_channels))
+            self.weight = [MLP([self.in_channels_l, hidden, out_channels], batch_norm=True).cuda() for i in range(num_bases)]
             self.comp = Parameter(torch.Tensor(num_relations, num_bases))
-
         else:
             self.MLP = [MLP([self.in_channels_l, hidden, out_channels], batch_norm=True).cuda() for i in range(num_relations)]
             self.register_parameter('comp', None)
 
         if root_weight:
-            self.root = MLP([self.in_channels_l, hidden, out_channels], batch_norm=True).cuda()
+            if num_bases is not None:
+                self.comp = Parameter(torch.cat([self.comp,Parameter(torch.Tensor(1, num_bases))],0))
+            else:
+                self.root = MLP([self.in_channels_l, hidden, out_channels], batch_norm=True).cuda()
         else:
             self.register_parameter('root', None)
 
@@ -101,13 +103,26 @@ class RGINConv(MessagePassing):
         self.reset_parameters()
 
     def reset_parameters(self):
-        
-        if self.comp is not None:
+        if self.num_bases is not None:
             nn.init.xavier_uniform_(self.comp)
-        self.root.reset_parameters()
-        for i in self.MLP:
-            i.reset_parameters()
+            for i in self.weight:
+                i.reset_parameters()
+        else:
+            for i in self.MLP:
+                i.reset_parameters()
+            self.root.reset_parameters()
         nn.init.zeros_(self.bias)
+
+    def weighted_average(self,weights,comp):
+        weighted_model = copy.deepcopy(weights[0])
+        for key in weighted_model.state_dict().keys():
+            if 'num_batches_tracked' not in key:
+                temp = torch.zeros_like(weighted_model.state_dict()[key])
+                for i,weight in enumerate(weights):
+                    temp += weight.state_dict()[key]*comp[i]
+                weighted_model.state_dict()[key].data.copy_(temp)
+        return weighted_model
+
 
 
     def forward(self, x: Union[OptTensor, Tuple[OptTensor, Tensor]],
@@ -134,6 +149,14 @@ class RGINConv(MessagePassing):
         # propagate_type: (x: Tensor, edge_type_ptr: OptTensor)
         out = torch.zeros(x_r.size(0), self.out_channels, device=x_r.device)
 
+        if self.num_bases is not None:
+            MLP = [ self.weighted_average(self.weight,self.comp[relation]) for relation in range(self.num_relations+1)]
+            root = MLP[-1]
+            MLP = MLP[:-1]
+        else:
+            root = self.root
+            MLP = self.MLP
+
 
         for i in range(self.num_relations):
             tmp = masked_edge_index(edge_index, edge_type == i)
@@ -143,9 +166,8 @@ class RGINConv(MessagePassing):
             h = self.propagate(tmp, x=x_l, edge_type_ptr=None,
                                 size=size)
             
-            out = out + self.MLP[i](h)
+            out = out + MLP[i](h)
 
-        root = self.root
         if root is not None:
             out += root(x_r.float()) if x_r.dtype == torch.long else root(x_r)
 
@@ -176,19 +198,20 @@ class RGIN_Net(torch.nn.Module):
                  num_relations,
                  hidden=64,
                  max_depth=2,
-                 dropout=.0):
+                 dropout=.0,
+                 num_bases=None):
         super(RGIN_Net, self).__init__()
         self.convs = ModuleList()
         for i in range(max_depth):
             if i == 0:
                 self.convs.append(
-                    RGINConv(in_channels, hidden,hidden, num_relations=num_relations))
+                    RGINConv(in_channels, hidden,hidden, num_relations=num_relations,num_bases=num_bases))
             elif (i + 1) == max_depth:
                 self.convs.append(
-                    RGINConv(hidden,hidden, out_channels, num_relations=num_relations))
+                    RGINConv(hidden,hidden, out_channels, num_relations=num_relations,num_bases=num_bases))
             else:
                 self.convs.append(
-                    RGINConv(hidden,hidden, hidden, num_relations=num_relations))
+                    RGINConv(hidden,hidden, hidden, num_relations=num_relations,num_bases=num_bases))
         self.dropout = dropout
 
     def forward(self, data):
@@ -231,7 +254,8 @@ class RGIN_Net_Graph(torch.nn.Module):
                  hidden=64,
                  max_depth=2,
                  dropout=.0,
-                 pooling='add'):
+                 pooling='add',
+                 num_bases=None):
         super(RGIN_Net_Graph, self).__init__()
         self.dropout = dropout
         # Embedding (pre) layer
@@ -244,7 +268,8 @@ class RGIN_Net_Graph(torch.nn.Module):
                            num_relations=num_relations,
                            hidden=hidden,
                            max_depth=max_depth,
-                           dropout=dropout)
+                           dropout=dropout,
+                           num_bases=num_bases)
         
         # Pooling layer
         if pooling == 'add':

@@ -84,6 +84,9 @@ def parse_args():
     parser.add_argument(
         "--pooling", type=str, default=None
     )
+    parser.add_argument(
+        "--num-bases",type=int, default=None
+    )
 
     # finetune 
     parser.add_argument(

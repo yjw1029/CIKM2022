@@ -35,3 +35,14 @@ python main.py --trainer-cls LocalTrainer --client-cls RGNNClient \
 --dropout 0.2 --max-depth 4 --hidden 256 --clients-per-step 13 \
 --model-cls rgin --pooling virtual_node
 ```
+
+# Base Decomposition
+```bash
+python main.py --trainer-cls FedAvgTrainer --client-cls RGNNClient \
+--server-cls BaseServer --agg-cls NonUniformAgg \
+--global-optim-cls Adam --global-lr 0.001 \
+--local-optim-cls Adam --max-steps 100 --local-epoch 1 \
+--dropout 0.2 --max-depth 4 --hidden 256 --clients-per-step 13 \
+--model-cls rgin --pooling virtual_node --num-bases 5 \
+--param-filter-list "encoder_atom" "encoder" "clf" "comp" 
+```

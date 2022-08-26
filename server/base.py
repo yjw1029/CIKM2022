@@ -25,8 +25,9 @@ class BaseServer:
             hidden=self.args.hidden,
             max_depth=self.args.max_depth,
             dropout=self.args.dropout,
-            gnn=self.args.model_cls,
             pooling=self.args.pooling,
+            num_bases=self.args.num_bases,
+            num_relations=0
         )
 
         self.model = self.model.cuda()
