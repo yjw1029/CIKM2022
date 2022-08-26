@@ -57,7 +57,7 @@ class FedAvgTrainer(BaseTrainer):
         all_relative_impr = []
         
         server_state_dict = self.server.model.state_dict()
-        for uid in range(1, self.args.clients_num + 1):
+        for uid in self.args.clients:
             if load_server_model:
                 self.clients[uid].load_model(
                     server_state_dict, filter_list=self.args.param_filter_list
@@ -98,7 +98,7 @@ class FedAvgTrainer(BaseTrainer):
 
             for epoch in range(self.args.max_ft_steps):
                 # local train 1 epoch
-                self.clients[uid].fintune(reset_optim=False)
+                self.clients[uid].finetune(reset_optim=False)
                 eval_rslt = self.clients[uid].eval()
 
                 eval_str = "; ".join([f"{metric}: {value}" for metric, value in eval_rslt.items()])
