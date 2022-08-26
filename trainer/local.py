@@ -24,20 +24,19 @@ class LocalTrainer(BaseTrainer):
                 eval_str = "; ".join([f"{metric}: {value}" for metric, value in eval_rslt.items()])
                 logging.info(f"client_{uid} epoch {epoch}: {eval_str}")
 
-                no_imp_step += 1
-                if pre_rslt>eval_rslt[self.clients[uid].major_metric]:
-                    no_imp_step=0
-                pre_rslt = eval_rslt[self.clients[uid].major_metric]
-
-
                 if best_rslt is None or eval_rslt[self.clients[uid].major_metric] < best_rslt:
                     best_rslt = eval_rslt[self.clients[uid].major_metric]
                     best_state_dict = self.clients[uid].model.state_dict()
                     best_rslt_str = eval_str
                 
-                if self.args.patient < no_imp_step:
-                    logging.info(f"[+] client_{uid} early stops due to worse performance than best result over {self.args.patient} steps")
-                    break
+                if self.args.patient is not None:
+                    no_imp_step += 1
+                    if pre_rslt>eval_rslt[self.clients[uid].major_metric]:
+                        no_imp_step=0
+                    pre_rslt = eval_rslt[self.clients[uid].major_metric]
+                    if self.args.patient < no_imp_step:
+                        logging.info(f"[+] client_{uid} early stops due to worse performance than best result over {self.args.patient} steps")
+                        break
             
             logging.info(f"[+] client_{uid} best rslt: {best_rslt_str}. saving predictions...")
             self.clients[uid].load_model(best_state_dict)
