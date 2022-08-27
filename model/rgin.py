@@ -81,16 +81,18 @@ class RGINConv(MessagePassing):
         self.in_channels_l = in_channels[0]
 
         if num_bases is not None:
-            self.weight = [MLP([self.in_channels_l, hidden, out_channels], batch_norm=True).cuda() for i in range(num_bases)]
-            self.comp = Parameter(torch.Tensor(num_relations, num_bases))
+            if root_weight:
+                self.MLP = MLP([self.in_channels_l, hidden, out_channels], batch_norm=True,num_relations=num_relations+1,num_bases=num_bases) #contain root weight
+                self.root = True
+            else:
+                self.MLP = MLP([self.in_channels_l, hidden, out_channels], batch_norm=True,num_relations=num_relations,num_bases=num_bases)
+            self.register_parameter('comp', None)
         else:
             self.MLP = [MLP([self.in_channels_l, hidden, out_channels], batch_norm=True).cuda() for i in range(num_relations)]
             self.register_parameter('comp', None)
 
         if root_weight:
-            if num_bases is not None:
-                self.comp = Parameter(torch.cat([self.comp,Parameter(torch.Tensor(1, num_bases))],0))
-            else:
+            if num_bases is None:
                 self.root = MLP([self.in_channels_l, hidden, out_channels], batch_norm=True).cuda()
         else:
             self.register_parameter('root', None)
@@ -104,25 +106,12 @@ class RGINConv(MessagePassing):
 
     def reset_parameters(self):
         if self.num_bases is not None:
-            nn.init.xavier_uniform_(self.comp)
-            for i in self.weight:
-                i.reset_parameters()
+            self.MLP.reset_parameters()
         else:
             for i in self.MLP:
                 i.reset_parameters()
             self.root.reset_parameters()
         nn.init.zeros_(self.bias)
-
-    def weighted_average(self,weights,comp):
-        weighted_model = copy.deepcopy(weights[0])
-        for key in weighted_model.state_dict().keys():
-            if 'num_batches_tracked' not in key:
-                temp = torch.zeros_like(weighted_model.state_dict()[key])
-                for i,weight in enumerate(weights):
-                    temp += weight.state_dict()[key]*comp[i]
-                weighted_model.state_dict()[key].data.copy_(temp)
-        return weighted_model
-
 
 
     def forward(self, x: Union[OptTensor, Tuple[OptTensor, Tensor]],
@@ -148,16 +137,8 @@ class RGINConv(MessagePassing):
 
         # propagate_type: (x: Tensor, edge_type_ptr: OptTensor)
         out = torch.zeros(x_r.size(0), self.out_channels, device=x_r.device)
-
-        if self.num_bases is not None:
-            MLP = [ self.weighted_average(self.weight,self.comp[relation]) for relation in range(self.num_relations+1)]
-            root = MLP[-1]
-            MLP = MLP[:-1]
-        else:
-            root = self.root
-            MLP = self.MLP
-
-
+        root = self.root
+        MLP = self.MLP
         for i in range(self.num_relations):
             tmp = masked_edge_index(edge_index, edge_type == i)
 
@@ -165,12 +146,17 @@ class RGINConv(MessagePassing):
                 x_l = x_l.float()
             h = self.propagate(tmp, x=x_l, edge_type_ptr=None,
                                 size=size)
-            
-            out = out + MLP[i](h)
+            if self.num_bases is None:
+                out = out + MLP[i](h)
+            else:
+                out = out + MLP(h,i)
 
         if root is not None:
-            out += root(x_r.float()) if x_r.dtype == torch.long else root(x_r)
-
+            if self.num_bases is None:
+                out += root(x_r.float()) if x_r.dtype == torch.long else root(x_r)
+            else:
+                out += MLP(x_r.float(),self.num_relations) if x_r.dtype == torch.long else MLP(x_r,self.num_relations)
+        
         if self.bias is not None:
             out += self.bias
 
