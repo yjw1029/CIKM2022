@@ -113,15 +113,14 @@ class RGINConv(MessagePassing):
             self.root.reset_parameters()
         nn.init.zeros_(self.bias)
 
-    def weighted_average(self,weights,comp):
-        weighted_model = copy.deepcopy(weights[0])
-        for key in weighted_model.state_dict().keys():
-            if 'num_batches_tracked' not in key:
-                temp = torch.zeros_like(weighted_model.state_dict()[key])
-                for i,weight in enumerate(weights):
-                    temp += weight.state_dict()[key]*comp[i]
-                weighted_model.state_dict()[key].data.copy_(temp)
-        return weighted_model
+    def weighted_average(self,x,comp):
+        y = None
+        for i,mlp in enumerate(self.weight):
+            if y is None:
+                y = mlp(x)*comp[i]
+            else:
+                y += mlp(x)*comp[i]
+        return y
 
 
 
@@ -149,14 +148,11 @@ class RGINConv(MessagePassing):
         # propagate_type: (x: Tensor, edge_type_ptr: OptTensor)
         out = torch.zeros(x_r.size(0), self.out_channels, device=x_r.device)
 
-        if self.num_bases is not None:
-            MLP = [ self.weighted_average(self.weight,self.comp[relation]) for relation in range(self.num_relations+1)]
-            root = MLP[-1]
-            MLP = MLP[:-1]
-        else:
+        if self.num_bases is None:
             root = self.root
             MLP = self.MLP
-
+        else:
+            root = None
 
         for i in range(self.num_relations):
             tmp = masked_edge_index(edge_index, edge_type == i)
@@ -165,11 +161,16 @@ class RGINConv(MessagePassing):
                 x_l = x_l.float()
             h = self.propagate(tmp, x=x_l, edge_type_ptr=None,
                                 size=size)
-            
-            out = out + MLP[i](h)
+            if self.num_bases is None:
+                out = out + MLP[i](h)
+            else:
+                out = out + self.weighted_average(h,self.comp[i])
 
         if root is not None:
             out += root(x_r.float()) if x_r.dtype == torch.long else root(x_r)
+        
+        if self.comp.shape[0] == self.num_relations+1:
+            out = out + ( self.weighted_average(x_r.float(),self.comp[-1]) if x_r.dtype == torch.long else self.weighted_average(x_r,self.comp[-1]) )
 
         if self.bias is not None:
             out += self.bias
