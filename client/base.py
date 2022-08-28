@@ -26,6 +26,11 @@ class BaseClient:
             if self.args.local_lr is None
             else self.args.local_lr
         )
+        self.ft_lr = (
+            self.client_config["finetune"]["optimizer"]["lr"]
+            if self.args.ft_lr is None
+            else self.args.ft_lr
+        )
         self.major_metric = self.client_config["eval"]["major_metric"]
         self.base_metric = self.client_config["eval"]["base"]
 
@@ -118,10 +123,17 @@ class BaseClient:
 
         if self.args.enable_finetune:
             self.ft_optimizer_cls = eval(f"torch.optim.{self.args.ft_local_optim_cls}")
-            self.ft_optimizer = self.ft_optimizer_cls(self.model.parameters(), lr=self.ft_lr)
+            self.ft_optimizer = self.ft_optimizer_cls(
+                self.model.parameters(), lr=self.ft_lr
+            )
 
     def reset_optimizer(self):
         self.optimizer = self.optimizer_cls(self.model.parameters(), lr=self.lr)
+
+    def reset_ft_optimizer(self):
+        self.ft_optimizer = self.ft_optimizer_cls(
+            self.model.parameters(), lr=self.ft_lr
+        )
 
     def init_metrics(self):
         self.metric_cals = {}
@@ -159,6 +171,39 @@ class BaseClient:
 
                 loss.backward()
                 self.optimizer.step()
+
+                local_training_steps += 1
+                local_training_num += label.shape[0]
+
+        return local_training_num, local_training_steps
+
+    def finetune(self, reset_optim=True):
+        if reset_optim:
+            self.reset_ft_optimizer()
+
+        self.model = self.model.cuda()
+        self.model.train()
+
+        local_training_steps = 0
+        local_training_num = 0
+
+        for epoch in range(self.args.ft_local_epoch):
+            for data in self.dataloader_dict["train"]:
+                self.ft_optimizer.zero_grad()
+                data = data.cuda()
+                pred = self.model(data)
+                if "classification" in self.task_type.lower():
+                    label = data.y.squeeze(-1).long()
+                elif "regression" in self.task_type.lower():
+                    label = data.y
+
+                if len(label.size()) == 0:
+                    label = label.unsqueeze(0)
+
+                loss = self.criterion(pred, label)
+
+                loss.backward()
+                self.ft_optimizer.step()
 
                 local_training_steps += 1
                 local_training_num += label.shape[0]
