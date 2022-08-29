@@ -59,6 +59,7 @@ class RGINConv(MessagePassing):
         root_weight: bool = True,
         is_sorted: bool = False,
         bias: bool = True,
+        base_agg: str = 'decomposition', #(1)decomposition (2) moe
         **kwargs,
     ):
         kwargs.setdefault('aggr', aggr)
@@ -75,18 +76,26 @@ class RGINConv(MessagePassing):
         self.num_bases = num_bases
         self.num_blocks = num_blocks
         self.is_sorted = is_sorted
+        self.base_agg = base_agg
 
         if isinstance(in_channels, int):
             in_channels = (in_channels, in_channels)
         self.in_channels_l = in_channels[0]
 
         if num_bases is not None:
-            if root_weight:
-                self.MLP = MLP([self.in_channels_l, hidden, out_channels], batch_norm=True,num_relations=num_relations+1,num_bases=num_bases) #contain root weight
-                self.root = True
-            else:
-                self.MLP = MLP([self.in_channels_l, hidden, out_channels], batch_norm=True,num_relations=num_relations,num_bases=num_bases)
-            self.register_parameter('comp', None)
+            if self.base_agg == 'decomposition':
+                if root_weight:
+                    self.MLP = MLP([self.in_channels_l, hidden, out_channels], batch_norm=True,num_relations=num_relations+1,num_bases=num_bases) #contain root weight
+                    self.root = True
+                else:
+                    self.MLP = MLP([self.in_channels_l, hidden, out_channels], batch_norm=True,num_relations=num_relations,num_bases=num_bases)
+            elif self.base_agg == 'moe':
+                self.MLP = [MLP([self.in_channels_l, hidden, out_channels], batch_norm=True).cuda() for i in range(num_bases)]
+                if root_weight:
+                    self.comp = Parameter(torch.Tensor(num_relations+1, num_bases))
+                    self.root = True
+                else:
+                    self.comp = Parameter(torch.Tensor(num_relations, num_bases))
         else:
             self.MLP = [MLP([self.in_channels_l, hidden, out_channels], batch_norm=True).cuda() for i in range(num_relations)]
             self.register_parameter('comp', None)
@@ -106,13 +115,25 @@ class RGINConv(MessagePassing):
 
     def reset_parameters(self):
         if self.num_bases is not None:
-            self.MLP.reset_parameters()
+            if self.base_agg == 'decomposition':
+                self.MLP.reset_parameters()
+            elif self.base_agg == 'moe':
+                for i in self.MLP:
+                    i.reset_parameters()
         else:
             for i in self.MLP:
                 i.reset_parameters()
             self.root.reset_parameters()
         nn.init.zeros_(self.bias)
 
+    def weighted_average(self,x,comp):
+        y = None
+        for i,mlp in enumerate(self.MLP):
+            if y is None:
+                y = mlp(x)*comp[i]
+            else:
+                y += mlp(x)*comp[i]
+        return y
 
     def forward(self, x: Union[OptTensor, Tuple[OptTensor, Tensor]],
                 edge_index: Adj, edge_type: OptTensor = None):
@@ -137,8 +158,10 @@ class RGINConv(MessagePassing):
 
         # propagate_type: (x: Tensor, edge_type_ptr: OptTensor)
         out = torch.zeros(x_r.size(0), self.out_channels, device=x_r.device)
+
         root = self.root
         MLP = self.MLP
+
         for i in range(self.num_relations):
             tmp = masked_edge_index(edge_index, edge_type == i)
 
@@ -149,14 +172,20 @@ class RGINConv(MessagePassing):
             if self.num_bases is None:
                 out = out + MLP[i](h)
             else:
-                out = out + MLP(h,i)
-
+                if self.base_agg == 'decomposition':
+                    out = out + MLP(h,i)
+                elif self.base_agg == 'moe':
+                    out = out + self.weighted_average(h,self.comp[i])
+        
         if root is not None:
             if self.num_bases is None:
                 out += root(x_r.float()) if x_r.dtype == torch.long else root(x_r)
             else:
-                out += MLP(x_r.float(),self.num_relations) if x_r.dtype == torch.long else MLP(x_r,self.num_relations)
-        
+                if self.base_agg == 'decomposition':
+                    out += MLP(x_r.float(),self.num_relations) if x_r.dtype == torch.long else MLP(x_r,self.num_relations)
+                elif self.base_agg == 'moe':
+                    out = out + ( self.weighted_average(x_r.float(),self.comp[self.num_relations]) if x_r.dtype == torch.long else self.weighted_average(x_r,self.comp[self.num_relations]) )
+
         if self.bias is not None:
             out += self.bias
 
@@ -185,19 +214,20 @@ class RGIN_Net(torch.nn.Module):
                  hidden=64,
                  max_depth=2,
                  dropout=.0,
-                 num_bases=None):
+                 num_bases=None,
+                 base_agg='decomposition'):
         super(RGIN_Net, self).__init__()
         self.convs = ModuleList()
         for i in range(max_depth):
             if i == 0:
                 self.convs.append(
-                    RGINConv(in_channels, hidden,hidden, num_relations=num_relations,num_bases=num_bases))
+                    RGINConv(in_channels, hidden,hidden, num_relations=num_relations,num_bases=num_bases,base_agg=base_agg))
             elif (i + 1) == max_depth:
                 self.convs.append(
-                    RGINConv(hidden,hidden, out_channels, num_relations=num_relations,num_bases=num_bases))
+                    RGINConv(hidden,hidden, out_channels, num_relations=num_relations,num_bases=num_bases,base_agg=base_agg))
             else:
                 self.convs.append(
-                    RGINConv(hidden,hidden, hidden, num_relations=num_relations,num_bases=num_bases))
+                    RGINConv(hidden,hidden, hidden, num_relations=num_relations,num_bases=num_bases,base_agg=base_agg))
         self.dropout = dropout
 
     def forward(self, data):
@@ -241,7 +271,8 @@ class RGIN_Net_Graph(torch.nn.Module):
                  max_depth=2,
                  dropout=.0,
                  pooling='add',
-                 num_bases=None):
+                 num_bases=None,
+                 base_agg='decomposition'):
         super(RGIN_Net_Graph, self).__init__()
         self.dropout = dropout
         # Embedding (pre) layer
@@ -255,7 +286,8 @@ class RGIN_Net_Graph(torch.nn.Module):
                            hidden=hidden,
                            max_depth=max_depth,
                            dropout=dropout,
-                           num_bases=num_bases)
+                           num_bases=num_bases,
+                           base_agg=base_agg)
         
         # Pooling layer
         if pooling == 'add':

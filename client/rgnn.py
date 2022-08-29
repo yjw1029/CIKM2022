@@ -21,6 +21,7 @@ class HashTensorWrapper:
 class RGNNClient(BaseClient):
     def __init__(self, args, client_config, uid):
         self.num_bases = args.num_bases
+        self.base_agg = args.base_agg
         super().__init__(args, client_config, uid)
         assert (
             self.model_cls == "rgcn" or self.model_cls == "rgin"
@@ -88,7 +89,8 @@ class RGNNClient(BaseClient):
             max_depth=self.max_depth,
             dropout=self.dropout,
             pooling=self.pooling,
-            num_bases=self.num_bases
+            num_bases=self.num_bases,
+            base_agg=self.base_agg
         )
 
         if "classification" in self.task_type.lower():

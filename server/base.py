@@ -27,7 +27,8 @@ class BaseServer:
             dropout=self.args.dropout,
             pooling=self.args.pooling,
             num_bases=self.args.num_bases,
-            num_relations=0
+            num_relations=0,
+            base_agg=self.args.base_agg
         )
 
         self.model = self.model.cuda()

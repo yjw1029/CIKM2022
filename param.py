@@ -87,6 +87,9 @@ def parse_args():
     parser.add_argument(
         "--num-bases",type=int, default=None
     )
+    parser.add_argument(
+        "--base_agg",type=str,default=None
+    )
 
     # finetune 
     parser.add_argument(
