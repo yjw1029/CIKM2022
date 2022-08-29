@@ -8,6 +8,12 @@ def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--out-path", type=str, default="../amlt/cikm2022")
     parser.add_argument("--save-path", type=str, default=None)
+    parser.add_argument("--mode", type=str, default="merge", choices=["merge", "append"])
+
+    # for append
+    parser.add_argument("--pre-merge-path", type=str, default=None)
+    parser.add_argument("--append-src", type=str, default=None)
+    parser.add_argument("--append-clients", type=int, nargs="+", default=None)
 
     return parser.parse_args()
 
@@ -53,9 +59,7 @@ def merge_best_rslt(out_path, sorted_rslt_tasks, save_path):
     with open(save_path / "prediction.csv", 'w') as f:
         f.writelines(merged_lines)
 
-
-
-def main(args):
+def merge(args):
     if args.save_path is None:
         tz_NY = pytz.timezone('Asia/Shanghai')
         now = datetime.now(tz_NY)
@@ -76,7 +80,58 @@ def main(args):
     sorted_rslt_tasks = sort_task_by_impr(task_rslts)
     merge_best_rslt(out_path, sorted_rslt_tasks, save_path)
 
+
+def append(args):
+    if args.save_path is None:
+        tz_NY = pytz.timezone('Asia/Shanghai')
+        now = datetime.now(tz_NY)
+        current_time = now.strftime("%Y%m%d%H%M")
+        args.save_path = "../amlt/merge_rslt_" + current_time
+
+    pre_merge_path = Path(args.pre_merge_path)
+    append_src = Path(args.append_src)
+    save_path = Path(args.save_path)
+
+    save_path.mkdir(exist_ok=True, parents=True)
+
+    merged_lines = []
+    for uid in range(1, 14):
+        if uid not in args.append_clients:
+            with open(pre_merge_path / "prediction.csv", "r") as f:
+                for line in f:
+                    u, sid = line.split(",")[:2]
+                    if int(u) == uid:
+                        merged_lines.append(line)
+        else:
+            with open(append_src / "prediction.csv", "r") as f:
+                for line in f:
+                    u, sid = line.split(",")[:2]
+                    if int(u) == uid:
+                        merged_lines.append(line)
+    
+    with open(save_path / "prediction.csv", 'w') as f:
+        f.writelines(merged_lines)
+
+
+    merged_rslts = []
+    with open(pre_merge_path / "merged_task.txt", 'r') as f:
+        for line in f:
+            uid, task_name, impr_rslt = line.strip("\n").split(", ")
+            if int(uid) in args.append_clients:
+                client_rslts = parse_eval_rslt(append_src / "eval_rslt.txt")
+                impr_rslt = client_rslts[int(uid)]
+                task_name = append_src.name
+                merged_rslts.append(f"{uid}, {task_name}, {impr_rslt}\n")
+            else:
+                merged_rslts.append(line)
+
+    with open(save_path / "merged_task.txt", 'a') as f:
+        f.writelines(merged_rslts)
+    
+
 if __name__ == "__main__":
     args = parse_args()
-    main(args)
-
+    if args.mode == "merge":
+        merge(args)
+    if args.mode == "append":
+        append(args)
