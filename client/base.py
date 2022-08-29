@@ -26,11 +26,12 @@ class BaseClient:
             if self.args.local_lr is None
             else self.args.local_lr
         )
-        self.ft_lr = (
-            self.client_config["finetune"]["optimizer"]["lr"]
-            if self.args.ft_lr is None
-            else self.args.ft_lr
-        )
+        if self.args.enable_finetune:
+            self.ft_lr = (
+                self.client_config["finetune"]["optimizer"]["lr"]
+                if self.args.ft_lr is None
+                else self.args.ft_lr
+            )
         self.major_metric = self.client_config["eval"]["major_metric"]
         self.base_metric = self.client_config["eval"]["base"]
 
