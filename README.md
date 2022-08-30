@@ -35,6 +35,33 @@ python main.py --trainer-cls LocalTrainer --client-cls RGNNClient \
 --dropout 0.2 --max-depth 4 --hidden 256 --clients-per-step 13 \
 --model-cls rgin --pooling virtual_node
 ```
+
+* Base Decomposition
+```bash
+python main.py --trainer-cls FedAvgTrainer --client-cls RGNNClient \
+--server-cls BaseServer --agg-cls NonUniformAgg \
+--global-optim-cls Adam --global-lr 0.001 \
+--local-optim-cls Adam --max-steps 100 --local-epoch 1 \
+--dropout 0.2 --max-depth 4 --hidden 256 --clients-per-step 13 \
+--model-cls rgin --pooling virtual_node --num-bases 5 --base_agg decomposition \
+--param-filter-list "encoder_atom" "encoder" "clf" "comp" \
+--enable-finetune True --max-ft-steps 100 --ft-lr 0.001 \
+--ft-local-optim-cls Adam --ft-local-epoch 1 --out-path /home/v-chaozhang/model/rgin_maxs_1000_hi_256_maxd_4_po_virtual_node_base_5_updatebase_ft --device 1
+```
+
+* Base MoE
+```bash
+python main.py --trainer-cls FedAvgTrainer --client-cls RGNNClient \
+--server-cls BaseServer --agg-cls NonUniformAgg \
+--global-optim-cls Adam --global-lr 0.001 \
+--local-optim-cls Adam --max-steps 100 --local-epoch 1 \
+--dropout 0.2 --max-depth 4 --hidden 256 --clients-per-step 13 \
+--model-cls rgin --pooling virtual_node --num-bases 5 --base_agg moe \
+--param-filter-list "encoder_atom" "encoder" "clf" "comp" \
+--enable-finetune True --max-ft-steps 100 --ft-lr 0.001 \
+--ft-local-optim-cls Adam --ft-local-epoch 1 
+```
+
 * FedAdam + FT
 ```bash
 python main.py --trainer-cls FedAvgTrainer --client-cls BaseClient \
