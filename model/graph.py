@@ -34,7 +34,8 @@ class GNN_Net_Graph(torch.nn.Module):
                  max_depth=2,
                  dropout=.0,
                  gnn='gcn',
-                 pooling='add'):
+                 pooling='add',
+                 **kwargs):
         super(GNN_Net_Graph, self).__init__()
         self.dropout = dropout
         # Embedding (pre) layer
