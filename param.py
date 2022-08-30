@@ -56,6 +56,8 @@ def parse_args():
     parser.add_argument("--global-lr", type=float, default=None)
     parser.add_argument("--local-lr", type=float, default=None)
 
+    parser.add_argument("--weight-decay", type=float, default=None)
+
     parser.add_argument("--clients", type=int, nargs="+", default=list(range(1, 14)))
     parser.add_argument("--clients-per-step", type=int, default=13)
     parser.add_argument(
