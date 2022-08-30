@@ -272,7 +272,8 @@ class RGIN_Net_Graph(torch.nn.Module):
                  dropout=.0,
                  pooling='add',
                  num_bases=None,
-                 base_agg='decomposition'):
+                 base_agg='decomposition',
+                 **kwargs):
         super(RGIN_Net_Graph, self).__init__()
         self.dropout = dropout
         # Embedding (pre) layer

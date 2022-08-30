@@ -92,6 +92,7 @@ class RGCN_Net_Graph(torch.nn.Module):
         pooling="add",
         num_bases=None,
         base_agg="decomposition",
+        **kwargs
     ):
         super(RGCN_Net_Graph, self).__init__()
         self.dropout = dropout
