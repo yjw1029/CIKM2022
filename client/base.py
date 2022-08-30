@@ -235,6 +235,11 @@ class BaseClient:
         for metric in self.metric_cals:
             if metric != "relative_impr":
                 rslt[metric] = self.metric_cals[metric].compute()
+        
+        # clear state in metrics
+        for metric in self.metric_cals:
+            if metric != "relative_impr":
+                rslt[metric] = self.metric_cals[metric].clear()
 
         if "relative_impr" in self.metric_cals:
             rslt["relative_impr"] = (
