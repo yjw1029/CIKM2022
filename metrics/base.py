@@ -6,3 +6,6 @@ class BaseMetric:
     
     def compute(self):
         raise NotImplementedError
+    
+    def clear(self):
+        raise NotImplementedError

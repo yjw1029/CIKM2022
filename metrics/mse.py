@@ -16,3 +16,7 @@ class MSE(BaseMetric):
     def compute(self):
         with torch.no_grad():
             return self.all_mse / self.all_cnt
+
+    def clear(self):
+        self.all_mse = 0
+        self.all_cnt = 0

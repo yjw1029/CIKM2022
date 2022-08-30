@@ -44,7 +44,11 @@ class RGCN_Net(torch.nn.Module):
                     )
                 )
             else:
-                self.convs.append(RGCNConv(hidden, hidden, num_relations=num_relations))
+                self.convs.append(
+                    RGCNConv(
+                        hidden, hidden, num_relations=num_relations, num_bases=num_bases
+                    )
+                )
         self.dropout = dropout
 
     def forward(self, data):

@@ -15,3 +15,7 @@ class ErrorRate(BaseMetric):
     def compute(self):
         with torch.no_grad():
             return self.all_error / self.all_cnt
+
+    def clear(self):
+        self.all_error = 0
+        self.all_cnt = 0
