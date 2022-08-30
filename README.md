@@ -74,3 +74,18 @@ python main.py --trainer-cls FedAvgTrainer --client-cls BaseClient \
 --enable-finetune True --max-ft-steps 100 --ft-lr 0.001 \
 --ft-local-optim-cls Adam --ft-local-epoch 1
 ```
+
+* FadAdam + FedBN + FedReco + FT
+```bash
+python main.py --clients 1 2 3 4 5 6 7 8 11 12 --clients-per-step 10 \
+--trainer-cls FedAvgTrainer --client-cls FLRecoClient \
+--server-cls BaseServer --agg-cls NonUniformAgg \
+--global-optim-cls Adam --global-lr 0.001 \
+--local-optim-cls SGD --local-epoch 1 \
+--max-steps 100 --local-lr 0.01 \
+--pooling virtual_node --max-depth 4 --hidden 256 \
+--model-cls gin --dropout 0.2 \
+--enable-finetune True --max-ft-steps 100 --ft-lr 0.001 \
+--ft-local-optim-cls Adam --ft-local-epoch 1 --reco-steps 20 \
+--param-filter-list encoder_atom encoder clf norms
+```
