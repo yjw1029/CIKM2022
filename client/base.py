@@ -302,3 +302,8 @@ class BaseClient:
     def save_best_rslt(self, uid, eval_str, path):
         with open(os.path.join(path, "eval_rslt.txt"), "a") as file:
             file.write(f"client {uid} best evaluation result: {eval_str} \n")
+
+    def save_model(self, uid, path):
+        model_path = os.path.join(path, f"model_{uid}.pt")
+        logging.info(f"[+] Save the model of client {uid} at {model_path}")
+        torch.save(self.model.state_dict(), model_path)

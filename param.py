@@ -102,4 +102,9 @@ def parse_args():
         "--ft-local-epoch", type=int, default=None
     )
 
+    # fl-reconstruction
+    parser.add_argument(
+        "--reco-steps", type=int, default=None
+    )
+
     return parser.parse_args()
