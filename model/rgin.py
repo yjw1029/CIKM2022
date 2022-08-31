@@ -272,12 +272,19 @@ class RGIN_Net_Graph(torch.nn.Module):
                  dropout=.0,
                  pooling='add',
                  num_bases=None,
-                 base_agg='decomposition'):
+                 base_agg='decomposition',
+                 share_emb=False,
+                 cluster_num=None):
         super(RGIN_Net_Graph, self).__init__()
         self.dropout = dropout
         # Embedding (pre) layer
         self.encoder_atom = AtomEncoder(in_channels, hidden)
         self.encoder = Linear(in_channels, hidden)
+        self.share_emb = share_emb
+        if share_emb:
+            self.cluster_num = cluster_num
+            self.cluster = Parameter(torch.Tensor(self.cluster_num, hidden))
+            torch.nn.init.xavier_uniform_(self.cluster)
         # GNN layer
         
         self.gnn = RGIN_Net(in_channels=hidden,
@@ -313,10 +320,16 @@ class RGIN_Net_Graph(torch.nn.Module):
         else:
             raise TypeError('Unsupported data type!')
 
+        x = x.float()
         if x.dtype == torch.int64:
             x = self.encoder_atom(x)
         else:
             x = self.encoder(x)
+            if self.share_emb:
+                weight = x @ self.cluster.permute(1,0)
+                weight = F.softmax(weight,-1)
+                x = weight @ self.cluster
+
 
         x = self.gnn((x, edge_index, edge_type))
         if isinstance(self.pooling,VirtualNodePooling):

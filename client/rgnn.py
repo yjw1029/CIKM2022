@@ -22,6 +22,8 @@ class RGNNClient(BaseClient):
     def __init__(self, args, client_config, uid):
         self.num_bases = args.num_bases
         self.base_agg = args.base_agg
+        self.share_emb = args.share_emb
+        self.cluster_num = args.cluster_num
         super().__init__(args, client_config, uid)
         assert (
             self.model_cls == "rgcn" or self.model_cls == "rgin"
@@ -90,7 +92,9 @@ class RGNNClient(BaseClient):
             dropout=self.dropout,
             pooling=self.pooling,
             num_bases=self.num_bases,
-            base_agg=self.base_agg
+            base_agg=self.base_agg,
+            share_emb=self.share_emb,
+            cluster_num=self.cluster_num
         )
 
         if "classification" in self.task_type.lower():

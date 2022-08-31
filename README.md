@@ -42,7 +42,7 @@ python main.py --trainer-cls FedAvgTrainer --client-cls RGNNClient \
 --server-cls BaseServer --agg-cls NonUniformAgg \
 --global-optim-cls Adam --global-lr 0.001 \
 --local-optim-cls Adam --max-steps 100 --local-epoch 1 \
---dropout 0.2 --max-depth 4 --hidden 256 --clients-per-step 13 \
+--dropout 0.2 --max-depth 4 --hidden 256 --clients-per-step 2 --clients 1 2 \
 --model-cls rgin --pooling virtual_node --num-bases 5 --base_agg decomposition \
 --param-filter-list "encoder_atom" "encoder" "clf" "comp" \
 --enable-finetune True --max-ft-steps 100 --ft-lr 0.001 \
@@ -88,4 +88,9 @@ python main.py --clients 1 2 3 4 5 6 7 8 11 12 --clients-per-step 10 \
 --enable-finetune True --max-ft-steps 100 --ft-lr 0.001 \
 --ft-local-optim-cls Adam --ft-local-epoch 1 --reco-steps 20 \
 --param-filter-list encoder_atom encoder clf norms
+```
+
+* embedding share
+```bash
+python main.py --trainer-cls FedAvgTrainer --client-cls RGNNClient --server-cls BaseServer --agg-cls NonUniformAgg --global-optim-cls Adam --global-lr 0.001 --local-optim-cls Adam --max-steps 100 --local-epoch 1 --dropout 0.2 --max-depth 4 --hidden 256 --clients-per-step 10 --clients 1 2 3 4 5 6 7 8 11 12  --model-cls rgin --pooling virtual_node --num-bases 10 --base_agg decomposition --param-filter-list "encoder_atom" "encoder" "clf" "comp" "norms" --enable-finetune True --max-ft-steps 100 --ft-lr 0.001 --ft-local-optim-cls Adam --ft-local-epoch 1 --out-path /home/v-chaozhang/model/rgin_maxs_1000_hi_256_maxd_4_po_virtual_node_based_embs_ft --device 1 --share_emb True --cluster_num 10
 ```

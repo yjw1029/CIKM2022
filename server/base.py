@@ -28,7 +28,9 @@ class BaseServer:
             pooling=self.args.pooling,
             num_bases=self.args.num_bases,
             num_relations=0,
-            base_agg=self.args.base_agg
+            base_agg=self.args.base_agg,
+            share_emb=self.args.share_emb,
+            cluster_num=self.args.cluster_num
         )
 
         self.model = self.model.cuda()

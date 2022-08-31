@@ -92,6 +92,12 @@ def parse_args():
     parser.add_argument(
         "--base_agg",type=str,default=None
     )
+    parser.add_argument(
+        "--share_emb", type=str2bool, default=False
+    )
+    parser.add_argument(
+        "--cluster_num",type=int, default=None
+    )
 
     # finetune 
     parser.add_argument(
