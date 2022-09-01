@@ -90,7 +90,7 @@ def parse_args():
         "--num-bases",type=int, default=None
     )
     parser.add_argument(
-        "--base_agg",type=str,default=None
+        "--base-agg",type=str,default=None, choices=["decomposition", "moe"]
     )
 
     # finetune 
