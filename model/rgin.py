@@ -319,12 +319,7 @@ class RGIN_Net_Graph(torch.nn.Module):
             x = self.encoder(x)
 
         x = self.gnn((x, edge_index, edge_type))
-        if isinstance(self.pooling,VirtualNodePooling):
-            batch_diff = batch - batch[(torch.arange(len(batch)) + 1) % len(batch)]
-            last_indices = batch_diff != 0
-            x = x[last_indices]
-        else:
-            x = self.pooling(x, batch)
+        x = self.pooling(x, batch)
         x = self.linear(x)
         x = F.dropout(x, self.dropout, training=self.training)
         x = self.clf(x)

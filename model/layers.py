@@ -8,7 +8,7 @@ from torch import Tensor
 import math
 
 EMD_DIM = 200
-
+EDGE_EMB_DIM = 10
 
 class AtomEncoder(torch.nn.Module):
     def __init__(self, in_channels, hidden):
@@ -23,6 +23,15 @@ class AtomEncoder(torch.nn.Module):
         x_embedding = 0
         for i in range(x.shape[1]):
             x_embedding += self.atom_embedding_list[i](x[:, i])
+        return x_embedding
+
+class EdgeEncoder(torch.nn.Module):
+    def __init__(self, edge_types, hidden):
+        super(EdgeEncoder, self).__init__()
+        self.emb = torch.nn.Embedding(edge_types, hidden)
+
+    def forward(self, x):
+        x_embedding = self.emb(x)
         return x_embedding
 
 class VirtualNodePooling(torch.nn.Module):

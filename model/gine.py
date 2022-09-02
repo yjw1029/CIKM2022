@@ -3,71 +3,65 @@ from torch.nn import ModuleList
 import torch.nn.functional as F
 from torch.nn import Linear, Sequential
 
-from torch_geometric.nn import RGCNConv
+from torch_geometric.nn import GINEConv
 from torch_geometric.data import Data
 from torch_geometric.data.batch import Batch
 from torch_geometric.nn.glob import global_add_pool, global_mean_pool, global_max_pool
 
-from model.layers import AtomEncoder, VirtualNodePooling
+from model.layers import AtomEncoder, VirtualNodePooling, MLP, EdgeEncoder
 
 
-class RGCN_Net(torch.nn.Module):
+class GINE_Net(torch.nn.Module):
     def __init__(
         self,
         in_channels,
         out_channels,
-        num_relations,
         hidden=64,
         max_depth=2,
         dropout=0.0,
-        num_bases=None,
     ):
-        super(RGCN_Net, self).__init__()
+        super(GINE_Net, self).__init__()
         self.convs = ModuleList()
         for i in range(max_depth):
             if i == 0:
                 self.convs.append(
-                    RGCNConv(
-                        in_channels,
-                        hidden,
-                        num_relations=num_relations,
-                        num_bases=num_bases,
+                    GINEConv(
+                        MLP([in_channels, hidden, hidden], batch_norm=True),
+                        edge_dim=hidden,
                     )
                 )
             elif (i + 1) == max_depth:
                 self.convs.append(
-                    RGCNConv(
-                        hidden,
-                        out_channels,
-                        num_relations=num_relations,
-                        num_bases=num_bases,
+                    GINEConv(
+                        MLP([hidden, hidden, out_channels], batch_norm=True),
+                        edge_dim=hidden,
                     )
                 )
             else:
                 self.convs.append(
-                    RGCNConv(
-                        hidden, hidden, num_relations=num_relations, num_bases=num_bases
+                    GINEConv(
+                        MLP([hidden, hidden, hidden], batch_norm=True), edge_dim=hidden
                     )
                 )
         self.dropout = dropout
 
     def forward(self, data):
         if isinstance(data, Data):
-            x, edge_index, edge_type = data.x, data.edge_index, data.edge_type
+            x, edge_index, edge_attr = data.x, data.edge_index, data.edge_attr
         elif isinstance(data, tuple):
-            x, edge_index, edge_type = data
+            x, edge_index, edge_attr = data
         else:
             raise TypeError("Unsupported data type!")
 
         for i, conv in enumerate(self.convs):
-            x = conv(x, edge_index, edge_type)
+            x = conv(x, edge_index, edge_attr)
             if (i + 1) == len(self.convs):
                 break
             x = F.relu(F.dropout(x, p=self.dropout, training=self.training))
         return x
 
 
-class RGCN_Net_Graph(torch.nn.Module):
+class GINE_Net_Graph(torch.nn.Module):
     r"""GNN model with pre-linear layer, pooling layer
         and output layer for graph classification tasks.
 
@@ -91,16 +85,20 @@ class RGCN_Net_Graph(torch.nn.Module):
         dropout=0.0,
         pooling="add",
         num_bases=None,
-        base_agg="decomposition",
+        **kwargs,
     ):
-        super(RGCN_Net_Graph, self).__init__()
+        super(GINE_Net_Graph, self).__init__()
         self.dropout = dropout
         # Embedding (pre) layer
         self.encoder_atom = AtomEncoder(in_channels, hidden)
         self.encoder = Linear(in_channels, hidden)
+
+        # Edge Embedding (pre) layer
+        self.encoder_egde = EdgeEncoder(num_relations, hidden)
+
         # GNN layer
 
-        self.gnn = RGCN_Net(
+        self.gnn = GINE_Net(
             in_channels=hidden,
             out_channels=hidden,
             num_relations=num_relations,
@@ -144,7 +142,9 @@ class RGCN_Net_Graph(torch.nn.Module):
         else:
             x = self.encoder(x)
 
-        x = self.gnn((x, edge_index, edge_type))
+        edge_attr = self.encoder_egde(edge_type)
+
+        x = self.gnn((x, edge_index, edge_attr))
         x = self.pooling(x, batch)
         x = self.linear(x)
         x = F.dropout(x, self.dropout, training=self.training)
