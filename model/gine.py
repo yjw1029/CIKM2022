@@ -1,14 +1,84 @@
+from typing import Callable, Optional, Union
+
 import torch
+from torch import Tensor
 from torch.nn import ModuleList
 import torch.nn.functional as F
 from torch.nn import Linear, Sequential
+from torch_sparse import SparseTensor, matmul
 
-from torch_geometric.nn import GINEConv
+from torch_geometric.nn.conv import MessagePassing
 from torch_geometric.data import Data
 from torch_geometric.data.batch import Batch
 from torch_geometric.nn.glob import global_add_pool, global_mean_pool, global_max_pool
+from torch_geometric.nn.inits import reset
+from torch_geometric.typing import Adj, OptPairTensor, OptTensor, Size
+
 
 from model.layers import AtomEncoder, VirtualNodePooling, MLP, EdgeEncoder
+
+
+class OurGINEConv(MessagePassing):
+    def __init__(
+        self,
+        nn: torch.nn.Module,
+        eps: float = 0.0,
+        train_eps: bool = False,
+        edge_dim: Optional[int] = None,
+        **kwargs,
+    ):
+        kwargs.setdefault("aggr", "add")
+        super().__init__(**kwargs)
+        self.nn = nn
+        self.initial_eps = eps
+        if train_eps:
+            self.eps = torch.nn.Parameter(torch.Tensor([eps]))
+        else:
+            self.register_buffer("eps", torch.Tensor([eps]))
+        if edge_dim is not None:
+            in_channels = nn.channel_list[0]
+            self.lin = Linear(edge_dim, in_channels)
+
+        else:
+            self.lin = None
+        self.reset_parameters()
+    
+    def reset_parameters(self):
+        reset(self.nn)
+        self.eps.data.fill_(self.initial_eps)
+        if self.lin is not None:
+            self.lin.reset_parameters()
+
+
+    def forward(self, x: Union[Tensor, OptPairTensor], edge_index: Adj,
+                edge_attr: OptTensor = None, size: Size = None) -> Tensor:
+        """"""
+        if isinstance(x, Tensor):
+            x: OptPairTensor = (x, x)
+
+        # propagate_type: (x: OptPairTensor, edge_attr: OptTensor)
+        out = self.propagate(edge_index, x=x, edge_attr=edge_attr, size=size)
+
+        x_r = x[1]
+        if x_r is not None:
+            out += (1 + self.eps) * x_r
+
+        return self.nn(out)
+
+
+    def message(self, x_j: Tensor, edge_attr: Tensor) -> Tensor:
+        if self.lin is None and x_j.size(-1) != edge_attr.size(-1):
+            raise ValueError("Node and edge feature dimensionalities do not "
+                             "match. Consider setting the 'edge_dim' "
+                             "attribute of 'GINEConv'")
+
+        if self.lin is not None:
+            edge_attr = self.lin(edge_attr)
+
+        return (x_j + edge_attr).relu()
+
+    def __repr__(self) -> str:
+        return f'{self.__class__.__name__}(nn={self.nn})'
 
 
 class GINE_Net(torch.nn.Module):
@@ -25,21 +95,21 @@ class GINE_Net(torch.nn.Module):
         for i in range(max_depth):
             if i == 0:
                 self.convs.append(
-                    GINEConv(
+                    OurGINEConv(
                         MLP([in_channels, hidden, hidden], batch_norm=True),
                         edge_dim=hidden,
                     )
                 )
             elif (i + 1) == max_depth:
                 self.convs.append(
-                    GINEConv(
+                    OurGINEConv(
                         MLP([hidden, hidden, out_channels], batch_norm=True),
                         edge_dim=hidden,
                     )
                 )
             else:
                 self.convs.append(
-                    GINEConv(
+                    OurGINEConv(
                         MLP([hidden, hidden, hidden], batch_norm=True), edge_dim=hidden
                     )
                 )
@@ -101,11 +171,9 @@ class GINE_Net_Graph(torch.nn.Module):
         self.gnn = GINE_Net(
             in_channels=hidden,
             out_channels=hidden,
-            num_relations=num_relations,
             hidden=hidden,
             max_depth=max_depth,
             dropout=dropout,
-            num_bases=num_bases,
         )
 
         # Pooling layer

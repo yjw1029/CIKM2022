@@ -23,10 +23,11 @@ class RGNNClient(BaseClient):
         self.num_bases = args.num_bases
         self.base_agg = args.base_agg
         super().__init__(args, client_config, uid)
-        assert (
-            self.model_cls == "rgcn" or self.model_cls == "rgin"
-        ), f"model_cls must be rgcn or rgin for RGNNClient, but get {self.model_cls}"
-
+        assert self.model_cls in [
+            "rgcn",
+            "rgin",
+            "gine",
+        ], f"Invalid model_cls for RGNNClient, get {self.model_cls}"
 
     def preprocess_data(self, data):
         # add virtual node if pooling as virtual node
@@ -90,7 +91,7 @@ class RGNNClient(BaseClient):
             dropout=self.dropout,
             pooling=self.pooling,
             num_bases=self.num_bases,
-            base_agg=self.base_agg
+            base_agg=self.base_agg,
         )
 
         if "classification" in self.task_type.lower():
