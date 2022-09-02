@@ -94,6 +94,13 @@ class BaseClient:
         self.dataloader_dict = dataloader_dict
 
     def preprocess_data(self, data):
+        # avoid have the same attr as virtual node
+        for split in ["train", "val", "test"]:
+            for i in range(len(data[split])):
+                data[split][i].x = data[split][i].x + 1
+                if data[split][i].edge_attr is not None:
+                    data[split][i].edge_attr = data[split][i].edge_attr + 1
+                    
         if self.pooling == "virtual_node":
             logging.info("[+] Apply virtual node. Preprocessing data")
             transform = VirtualNode()
