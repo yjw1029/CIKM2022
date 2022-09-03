@@ -64,7 +64,7 @@ def merge(args):
         tz_NY = pytz.timezone('Asia/Shanghai')
         now = datetime.now(tz_NY)
         current_time = now.strftime("%Y%m%d%H%M")
-        args.save_path = "../amlt/merge_rslt_" + current_time
+        args.save_path = "../amlt/merge/merge_rslt_" + current_time
 
     out_path = Path(args.out_path)
     save_path = Path(args.save_path)
