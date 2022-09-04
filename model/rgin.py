@@ -215,19 +215,20 @@ class RGIN_Net(torch.nn.Module):
                  max_depth=2,
                  dropout=.0,
                  num_bases=None,
-                 base_agg='decomposition'):
+                 base_agg='decomposition',
+                 root_weight=True):
         super(RGIN_Net, self).__init__()
         self.convs = ModuleList()
         for i in range(max_depth):
             if i == 0:
                 self.convs.append(
-                    RGINConv(in_channels, hidden,hidden, num_relations=num_relations,num_bases=num_bases,base_agg=base_agg))
+                    RGINConv(in_channels, hidden,hidden, num_relations=num_relations,num_bases=num_bases,base_agg=base_agg,root_weight=root_weight))
             elif (i + 1) == max_depth:
                 self.convs.append(
-                    RGINConv(hidden,hidden, out_channels, num_relations=num_relations,num_bases=num_bases,base_agg=base_agg))
+                    RGINConv(hidden,hidden, out_channels, num_relations=num_relations,num_bases=num_bases,base_agg=base_agg,root_weight=root_weight))
             else:
                 self.convs.append(
-                    RGINConv(hidden,hidden, hidden, num_relations=num_relations,num_bases=num_bases,base_agg=base_agg))
+                    RGINConv(hidden,hidden, hidden, num_relations=num_relations,num_bases=num_bases,base_agg=base_agg,root_weight=root_weight))
         self.dropout = dropout
 
     def forward(self, data):
@@ -272,12 +273,15 @@ class RGIN_Net_Graph(torch.nn.Module):
                  dropout=.0,
                  pooling='add',
                  num_bases=None,
-                 base_agg='decomposition'):
+                 base_agg='decomposition',
+                 root_weight=True,
+                 mode='finetune'):
         super(RGIN_Net_Graph, self).__init__()
         self.dropout = dropout
         # Embedding (pre) layer
         self.encoder_atom = AtomEncoder(in_channels, hidden)
         self.encoder = Linear(in_channels, hidden)
+        self.mode = mode
         # GNN layer
         
         self.gnn = RGIN_Net(in_channels=hidden,
@@ -287,7 +291,8 @@ class RGIN_Net_Graph(torch.nn.Module):
                            max_depth=max_depth,
                            dropout=dropout,
                            num_bases=num_bases,
-                           base_agg=base_agg)
+                           base_agg=base_agg,
+                           root_weight=root_weight)
         
         # Pooling layer
         if pooling == 'add':
@@ -319,6 +324,8 @@ class RGIN_Net_Graph(torch.nn.Module):
             x = self.encoder(x)
 
         x = self.gnn((x, edge_index, edge_type))
+        if self.mode == 'pretrain':
+            return x
         if isinstance(self.pooling,VirtualNodePooling):
             batch_diff = batch - batch[(torch.arange(len(batch)) + 1) % len(batch)]
             last_indices = batch_diff != 0

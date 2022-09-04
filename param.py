@@ -115,4 +115,17 @@ def parse_args():
         "--reco-steps", type=int, default=None
     )
 
+    # pretrain
+    parser.add_argument(
+        "--sample-node-num", type=int, default=None
+    )
+    parser.add_argument(
+        "--sample-depth", type=int, default=None
+    )
+    parser.add_argument(
+        "--sample-neighbor-number", type=int, default=None
+    )
+    parser.add_argument(
+        "--attr-ratio", type=float, default=None
+    )
     return parser.parse_args()

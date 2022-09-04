@@ -15,6 +15,7 @@ class FedAvgTrainer(BaseTrainer):
         self.fl_training()
 
         if self.args.enable_finetune:
+
             self.finetune()
         else:
             self.save_predictions_all_clients()
@@ -99,7 +100,7 @@ class FedAvgTrainer(BaseTrainer):
             for epoch in range(self.args.max_ft_steps):
                 # local train 1 epoch
                 self.clients[uid].finetune(reset_optim=False)
-                eval_rslt = self.clients[uid].eval()
+                eval_rslt = self.clients[uid].eval_finetune()
 
                 eval_str = "; ".join([f"{metric}: {value}" for metric, value in eval_rslt.items()])
                 logging.info(f"client_{uid} epoch {epoch}: {eval_str}")

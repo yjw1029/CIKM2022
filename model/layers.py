@@ -4,6 +4,7 @@ from torch.nn import Linear, ModuleList
 from torch.nn import BatchNorm1d, Identity
 import torch.nn.init as init
 from torch.nn import Parameter
+import torch.nn as nn
 from torch import Tensor
 import math
 
@@ -138,3 +139,28 @@ class Linear_w_base(torch.nn.Module):
         return 'in_features={}, out_features={}, bias={}'.format(
             self.in_features, self.out_features, self.bias is not None
         )
+
+class Matcher(nn.Module):
+    '''
+        Matching between a pair of nodes to conduct link prediction.
+        Use multi-head attention as matching model.
+    '''
+    
+    def __init__(self, n_hid, n_out, temperature = 0.1):
+        super(Matcher, self).__init__()
+        self.n_hid          = n_hid
+        self.linear    = nn.Linear(n_hid,  n_out)
+        self.sqrt_hd     = math.sqrt(n_out)
+        self.drop        = nn.Dropout(0.2)
+        self.cosine      = nn.CosineSimilarity(dim=1)
+        self.cache       = None
+        self.temperature = temperature
+    def forward(self, x, ty, use_norm = True):
+        tx = self.drop(self.linear(x))
+        if use_norm:
+            return self.cosine(tx, ty) / self.temperature
+        else:
+            return (tx * ty).sum(dim=-1) / self.sqrt_hd
+    def __repr__(self):
+        return '{}(n_hid={})'.format(
+            self.__class__.__name__, self.n_hid)
