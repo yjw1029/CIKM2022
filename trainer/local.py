@@ -31,7 +31,7 @@ class LocalTrainer(BaseTrainer):
                 
                 if self.args.patient is not None:
                     no_imp_step += 1
-                    if pre_rslt>eval_rslt[self.clients[uid].major_metric]:
+                    if pre_rslt >= eval_rslt[self.clients[uid].major_metric]:
                         no_imp_step=0
                     pre_rslt = eval_rslt[self.clients[uid].major_metric]
                     if self.args.patient < no_imp_step:
