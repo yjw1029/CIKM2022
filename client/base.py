@@ -142,6 +142,14 @@ class BaseClient:
 
     def init_metrics(self):
         self.metric_cals = {}
+        assert (
+            "relative_impr" in self.client_config["eval"]["metrics"]
+        ), f"relative_impr not in metrics of client {self.uid}."
+
+        assert (
+            self.major_metric in self.client_config["eval"]["metrics"]
+        ), f"Major metric {self.major_metric} not in metrics of client {self.uid}."
+
         for metric in self.client_config["eval"]["metrics"]:
             # compute relative_impr at the final step of evaluation
             if metric == "relative_impr":
@@ -326,11 +334,11 @@ class BaseClient:
                     line = [self.uid, y_ind] + list(y_pred)
                 file.write(",".join([str(_) for _ in line]) + "\n")
 
-    def save_best_rslt(self, uid, path):
+    def save_best_rslt(self, path):
         with open(os.path.join(path, "eval_rslt.txt"), "a") as file:
-            file.write(f"client {uid} best evaluation result: {self.best_rslt_str} \n")
+            file.write(f"client {self.uid} best evaluation result: {self.best_rslt_str} \n")
 
-    def save_best_model(self, uid, path):
-        model_path = os.path.join(path, f"model_{uid}.pt")
+    def save_best_model(self, path):
+        model_path = os.path.join(path, f"model_{self.uid}.pt")
         torch.save(self.best_state_dict, model_path)
-        logging.info(f"[+] Save the best model of client {uid} at {model_path}")
+        logging.info(f"[+] Save the best model of client {self.uid} at {model_path}")

@@ -1,19 +1,21 @@
 import logging
 
 from .base import BaseTrainer
+from utils import EarlyStopper
 
 
 class LocalTrainer(BaseTrainer):
     def __init__(self, args):
+        # no server in local trainer
         self.args = args
         self.init_clients()
-        # no server in local trainer
+
+        self.early_stopper = EarlyStopper(self.args.patient)
 
     def run(self):
         # local training clinet_by_client
         for uid in self.args.clients:
-            no_imp_step = 0
-            pre_rslt = 1e8
+            self.early_stopper.clear()
             for epoch in range(self.args.max_steps):
                 # local train 1 epoch
                 self.clients[uid].train(reset_optim=False)
@@ -30,16 +32,14 @@ class LocalTrainer(BaseTrainer):
                     eval_str=eval_str,
                 )
 
-                if self.args.patient is not None:
-                    no_imp_step += 1
-                    if pre_rslt >= eval_rslt[self.clients[uid].major_metric]:
-                        no_imp_step = 0
-                    pre_rslt = eval_rslt[self.clients[uid].major_metric]
-                    if self.args.patient < no_imp_step:
-                        logging.info(
-                            f"[+] client_{uid} early stops due to worse performance than best result over {self.args.patient} steps"
-                        )
-                        break
+                need_stop = self.early_stopper.update(
+                    eval_rslt[self.clients[uid].major_metric]
+                )
+                if need_stop:
+                    logging.info(
+                        f"[+] client_{uid} early stops due to worse performance than best result over {self.args.patient} steps"
+                    )
+                    break
 
             logging.info(
                 f"[+] client_{uid} best rslt: {self.clients[uid].best_rslt_str}. saving checkpoints and predictions..."
@@ -47,7 +47,7 @@ class LocalTrainer(BaseTrainer):
             self.clients[uid].load_model(self.clients[uid].best_state_dict)
             self.clients[uid].save_prediction(self.args.out_path, dataset="val")
             self.clients[uid].save_prediction(self.args.out_path, dataset="test")
-            self.clients[uid].save_best_rslt(uid, self.args.out_path)
-            self.clients[uid].save_best_model(uid, self.args.out_path)
+            self.clients[uid].save_best_rslt(self.args.out_path)
+            self.clients[uid].save_best_model(self.args.out_path)
             logging.info(f"[-] finish saving predictions for client_{uid}")
             del self.clients[uid]
