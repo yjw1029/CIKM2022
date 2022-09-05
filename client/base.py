@@ -261,13 +261,13 @@ class BaseClient:
         self.model.load_state_dict(state_dict_filtered, strict=False)
 
     @torch.no_grad()
-    def save_prediction(self, path):
+    def save_prediction(self, path, dataset="test"):
         self.model = self.model.cuda()
         self.model.eval()
 
         preds = []
         data_indexes = []
-        for data in self.dataloader_dict["test"]:
+        for data in self.dataloader_dict[dataset]:
             data = data.cuda()
             pred = self.model(data)
             if "classification" in self.task_type.lower():
@@ -284,7 +284,6 @@ class BaseClient:
         y_inds, y_probs = data_indexes, np.concatenate(preds, axis=0)
         os.makedirs(path, exist_ok=True)
 
-        # TODO: more feasible, for now we hard code it for cikmcup
         y_preds = (
             np.argmax(y_probs, axis=-1)
             if "classification" in self.task_type.lower()
@@ -296,13 +295,24 @@ class BaseClient:
                 f"The length of the predictions {len(y_preds)} not equal to the samples {len(y_inds)}."
             )
 
-        with open(os.path.join(path, "prediction.csv"), "a") as file:
+        # The format of submission file
+        with open(os.path.join(path, f"prediction_{dataset}.csv"), "a") as file:
             for y_ind, y_pred in zip(y_inds, y_preds):
                 if "classification" in self.task_type.lower():
                     line = [self.uid, y_ind] + [y_pred]
                 else:
                     line = [self.uid, y_ind] + list(y_pred)
                 file.write(",".join([str(_) for _ in line]) + "\n")
+
+        # save soft predictions
+        with open(os.path.join(path, f"prediction_soft_{dataset}.csv"), "a") as file:
+            for y_ind, y_pred in zip(y_inds, y_preds):
+                if "classification" in self.task_type.lower():
+                    line = [self.uid, y_ind] + list(y_probs)
+                else:
+                    line = [self.uid, y_ind] + list(y_pred)
+                file.write(",".join([str(_) for _ in line]) + "\n")
+
 
     def save_best_rslt(self, uid, eval_str, path):
         with open(os.path.join(path, "eval_rslt.txt"), "a") as file:
