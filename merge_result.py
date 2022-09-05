@@ -3,7 +3,7 @@ from pathlib import Path
 import re
 from datetime import datetime
 import pytz
-from collections import Counter
+from collections import defaultdict
 import numpy as np
 
 
@@ -70,39 +70,45 @@ def merge_best_rslt(out_path, sorted_rslt_tasks, save_path):
         f.writelines(merged_lines)
 
 
-def merge_cls_rslt(lines):
+def merge_cls_rslt(lines, weights):
     # uid, sid, cls
     uids, sids, preds = [], [], []
-    for line in lines:
+    merged_pred = defaultdict(float)
+    for cnt, line in enumerate(lines):
         uid, sid, pred = line.strip("\n").split(",")
         uids.append(uid)
         sids.append(sid)
-        preds.append(pred)
+        merged_pred[pred] += weights[cnt]
 
     assert len(set(uid)) == 1 and len(set(sids)) == 1
-    merged_pred = Counter(preds).most_common(1)[0][0]
+    merged_pred = max(merged_pred.items(), key=lambda k: k[1])[0]
     merged_line = f"{uid},{sid},{merged_pred}\n"
     return merged_line
 
 
 def merge_binary_cls(out_path, uid, selected_tasks):
-    task_files = []
+    task_lines = {}
     task_rslts = []
+    test_rslts_dict = {}
     for selected_task in selected_tasks:
         impr_rslt, task_name = selected_task
-        task_files.append(open(out_path / task_name / "prediction.csv", "r"))
+        task_lines[selected_task] = {}
+        with open(out_path / task_name / "prediction.csv", "r") as f:
+            for line in f:
+                if int(line.split(",")[0]) == uid:
+                    task_lines[selected_task][int(line.split(",")[1])] = line
+        test_rslts_dict[selected_task] = impr_rslt
         task_rslts.append(f"{uid}, {task_name}, {impr_rslt}\n")
 
     merged_lines = []
-    task_files = tuple(task_files)
-    for lines in zip(*task_files):
-        if int(lines[0].split(",")[0]) == uid:
-            merged_lines.extend(merge_cls_rslt(lines))
-
+    for i in range(len(task_lines[selected_tasks[0]])):
+        lines = [task_lines[t][i] for t in selected_tasks]
+        weights = [test_rslts_dict[t] for t in selected_tasks]
+        merged_lines.extend(merge_cls_rslt(lines, weights))
     return merged_lines, task_rslts
 
 
-def merge_regression_rslt(lines):
+def merge_regression_rslt(lines, weights):
     # uid, sid, cls
     uids, sids, preds = [], [], []
     for line in lines:
@@ -112,26 +118,35 @@ def merge_regression_rslt(lines):
         sids.append(sid)
         preds.append(pred)
 
+    norm_weights = np.array(weights)
+    norm_weights = np.expand_dims(norm_weights / norm_weights.sum(), axis=-1)
+
     assert len(set(uids)) == 1 and len(set(sids)) == 1
-    merged_pred = np.mean(np.stack(preds, axis=0), axis=0)
+    merged_pred = np.sum(norm_weights * np.stack(preds, axis=0), axis=0)
     merged_pred = [uid, sid] + list(merged_pred)
     merged_line = ",".join([str(_) for _ in merged_pred]) + "\n"
     return merged_line
 
 
 def merge_regression(out_path, uid, selected_tasks):
-    task_files = []
+    task_lines = {}
     task_rslts = []
+    test_rslts_dict = {}
     for selected_task in selected_tasks:
         impr_rslt, task_name = selected_task
-        task_files.append(open(out_path / task_name / "prediction.csv", "r"))
+        task_lines[selected_task] = {}
+        with open(out_path / task_name / "prediction.csv", "r") as f:
+            for line in f:
+                if int(line.split(",")[0]) == uid:
+                    task_lines[selected_task][int(line.split(",")[1])] = line
+        test_rslts_dict[selected_task] = impr_rslt
         task_rslts.append(f"{uid}, {task_name}, {impr_rslt}\n")
 
     merged_lines = []
-    task_files = tuple(task_files)
-    for lines in zip(*task_files):
-        if int(lines[0].split(",")[0]) == uid:
-            merged_lines.extend(merge_regression_rslt(lines))
+    for i in range(len(task_lines[selected_tasks[0]])):
+        lines = [task_lines[t][i] for t in selected_tasks]
+        weights = [test_rslts_dict[t] for t in selected_tasks]
+        merged_lines.extend(merge_regression_rslt(lines, weights))
 
     return merged_lines, task_rslts
 
