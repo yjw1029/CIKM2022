@@ -104,7 +104,7 @@ class FedAvgTrainer(BaseTrainer):
                 eval_str = "; ".join([f"{metric}: {value}" for metric, value in eval_rslt.items()])
                 logging.info(f"client_{uid} epoch {epoch}: {eval_str}")
 
-                if best_rslt is None or eval_rslt[self.clients[uid].major_metric] < best_rslt:
+                if best_rslt is None or eval_rslt[self.clients[uid].major_metric] <= best_rslt:
                     best_rslt = eval_rslt[self.clients[uid].major_metric]
                     best_state_dict = self.clients[uid].model.state_dict()
                     best_rslt_str = eval_str
