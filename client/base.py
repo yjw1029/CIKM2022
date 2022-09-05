@@ -327,16 +327,18 @@ class BaseClient:
 
         # save soft predictions
         with open(os.path.join(path, f"prediction_soft_{dataset}.csv"), "a") as file:
-            for y_ind, y_pred in zip(y_inds, y_preds):
+            for y_ind, y_pred, y_prob in zip(y_inds, y_preds, y_probs):
                 if "classification" in self.task_type.lower():
-                    line = [self.uid, y_ind] + list(y_probs)
+                    line = [self.uid, y_ind] + list(y_prob)
                 else:
                     line = [self.uid, y_ind] + list(y_pred)
                 file.write(",".join([str(_) for _ in line]) + "\n")
 
     def save_best_rslt(self, path):
         with open(os.path.join(path, "eval_rslt.txt"), "a") as file:
-            file.write(f"client {self.uid} best evaluation result: {self.best_rslt_str} \n")
+            file.write(
+                f"client {self.uid} best evaluation result: {self.best_rslt_str} \n"
+            )
 
     def save_best_model(self, path):
         model_path = os.path.join(path, f"model_{self.uid}.pt")
