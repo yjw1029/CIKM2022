@@ -1,4 +1,6 @@
 from pathlib import Path
+from tkinter import N
+from tkinter.messagebox import NO
 import numpy as np
 import os
 import logging
@@ -41,6 +43,8 @@ class BaseClient:
         self.init_model()
         self.init_optimizer()
         self.init_metrics()
+
+        self.init_best()
 
     def init_model_param(self):
         self.model_cls = (
@@ -144,6 +148,15 @@ class BaseClient:
                 self.metric_cals[metric] = None
             else:
                 self.metric_cals[metric] = get_metric(metric)()
+
+    def init_best(self):
+        self.best_rslt, self.best_state_dict, self.best_rslt_str = None, None, None
+
+    def update_best(self, eval_rslt=None, state_dict=None, eval_str=None):
+        if self.best_rslt is None or eval_rslt[self.major_metric] <= self.best_rslt:
+            self.best_rslt = eval_rslt[self.major_metric]
+            self.best_state_dict = state_dict
+            self.best_rslt_str = eval_str
 
     def train(self, reset_optim=True):
         if reset_optim:
@@ -313,12 +326,11 @@ class BaseClient:
                     line = [self.uid, y_ind] + list(y_pred)
                 file.write(",".join([str(_) for _ in line]) + "\n")
 
-
-    def save_best_rslt(self, uid, eval_str, path):
+    def save_best_rslt(self, uid, path):
         with open(os.path.join(path, "eval_rslt.txt"), "a") as file:
-            file.write(f"client {uid} best evaluation result: {eval_str} \n")
+            file.write(f"client {uid} best evaluation result: {self.best_rslt_str} \n")
 
-    def save_model(self, uid, path):
+    def save_best_model(self, uid, path):
         model_path = os.path.join(path, f"model_{uid}.pt")
-        logging.info(f"[+] Save the model of client {uid} at {model_path}")
-        torch.save(self.model.state_dict(), model_path)
+        torch.save(self.best_state_dict, model_path)
+        logging.info(f"[+] Save the best model of client {uid} at {model_path}")
