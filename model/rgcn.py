@@ -10,7 +10,7 @@ from torch_geometric.data.batch import Batch
 from torch_geometric.nn.glob import global_add_pool, global_mean_pool, global_max_pool
 
 from model.layers import AtomEncoder, VirtualNodePooling
-from .layers import Matcher
+from .layers import Matcher,MLP
 import numpy as np
 
 
@@ -99,7 +99,8 @@ class RGCN_Net_Graph(torch.nn.Module):
         num_bases=None,
         base_agg="decomposition",
         root_weight=True,
-        mode='finetune'
+        mode='finetune',
+        node_types=None
     ):
         super(RGCN_Net_Graph, self).__init__()
         self.dropout = dropout
@@ -107,6 +108,8 @@ class RGCN_Net_Graph(torch.nn.Module):
         self.encoder_atom = AtomEncoder(in_channels, hidden)
         self.encoder = Linear(in_channels, hidden)
         self.mode = mode
+        if node_types is not None :
+            self.node_types = node_types
         if mode == 'pretrain':
             self.params = nn.ModuleList()
             self.neg_queue_size = 5
@@ -119,7 +122,7 @@ class RGCN_Net_Graph(torch.nn.Module):
                 self.neg_queue['mol'][relation_type] = torch.FloatTensor([]).cuda()
                 self.link_dec_dict['mol'][relation_type] = matcher
                 self.params.append(matcher)
-            self.attr_decoder = Matcher(hidden, in_channels)
+            self.attr_decoder = MLP([hidden, self.node_types], batch_norm=False)
             self.init_emb = nn.Parameter(torch.randn(hidden))
             self.ce = nn.CrossEntropyLoss(reduction = 'none')
             self.neg_samp_num = 4
@@ -165,8 +168,10 @@ class RGCN_Net_Graph(torch.nn.Module):
                 break
         return neg_nodes
 
-    def feat_loss(self, reps, out):
-        return -self.attr_decoder(reps, out).mean()
+    def feat_loss(self, reps, node_cls):
+        logits = self.attr_decoder(reps)
+        loss = self.ce(logits,node_cls)
+        return loss.mean()
 
     def link_loss(self, node_emb, rem_edge_list, ori_edge_list, node_dict, target_type, use_queue = True, update_queue = False):
         losses = 0
@@ -179,7 +184,7 @@ class RGCN_Net_Graph(torch.nn.Module):
                 if relation_type not in self.link_dec_dict[source_type]:
                     continue
                 rem_edges = rem_edge_list[source_type][relation_type]
-                if len(rem_edges) <= 3:
+                if len(rem_edges) <1:
                     continue
                 ori_edges = ori_edge_list[source_type][relation_type]
                 matcher = self.link_dec_dict[source_type][relation_type]

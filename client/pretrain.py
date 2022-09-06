@@ -5,6 +5,9 @@ from model import get_model_cls
 import torch.nn as nn
 import torch
 from metrics import get_metric
+from .rgnn import HashTensorWrapper
+import logging
+
 
 def feature_extractor(layer_data, graph):
     indxs   = {}
@@ -175,10 +178,6 @@ def sample_subgraph(graph, time_range, sampled_depth = 2, sampled_number = 8, in
                             lambda: defaultdict(  #relation_type
                                 lambda: [] # [target_id, source_id] 
                                     )))
-    for _type in layer_data:
-        for _key in layer_data[_type]:
-            _ser = layer_data[_type][_key][0]
-            edge_list[_type][_type]['self'] += [[_ser, _ser]]
     '''
         Reconstruct sampled adjacancy matrix by checking whether each
         link exist in the original graph
@@ -226,9 +225,6 @@ def to_torch(feature, edge_list, graph):
     for t in types:
         node_feature += list(feature[t])
         node_type    += [node_dict[t][1] for _ in range(len(feature[t]))]
-        
-    edge_dict = {e[2]: i for i, e in enumerate(graph.get_meta_graph())}
-    edge_dict['self'] = len(edge_dict)
 
     for target_type in edge_list:
         for source_type in edge_list[target_type]:
@@ -236,12 +232,12 @@ def to_torch(feature, edge_list, graph):
                 for ii, (ti, si) in enumerate(edge_list[target_type][source_type][relation_type]):
                     tid, sid = ti + node_dict[target_type][0], si + node_dict[source_type][0]
                     edge_index += [[sid, tid]]
-                    edge_type  += [edge_dict[relation_type]]   
+                    edge_type  += [relation_type]   
     node_feature = torch.FloatTensor(np.array(node_feature))
     node_type    = torch.LongTensor(node_type)
     edge_index   = torch.LongTensor(edge_index).t()
     edge_type    = torch.LongTensor(edge_type)
-    return node_feature, node_type, edge_index, edge_type, node_dict, edge_dict
+    return node_feature, node_type, edge_index, edge_type, node_dict
 
 
 
@@ -259,15 +255,15 @@ class PretrainClient(FLRecoRGNNClient):
         samp_target_nodes = []
         graph = Graph()
         for edge_idx,(i,j) in enumerate(data.edge_index.t()):
-            node_i={'id':i,'type':'mol','attr':data.x[i]}
-            node_j={'id':j,'type':'mol','attr':data.x[j]}
+            node_i={'id':i.item(),'type':'mol','attr':data.x[i]}
+            node_j={'id':j.item(),'type':'mol','attr':data.x[j]}
             graph.add_edge(node_i,node_j,relation_type=data.edge_type[edge_idx].item())
-        
+
         for i in range(batch_size):
             node_list = list(range(data.ptr[i],data.ptr[i+1]))
             target_node = np.random.choice(node_list, self.args.sample_node_num)
             samp_target_nodes.append([target_node[0],1])
-        
+
         threshold = 0.5
         edge_list, ori_idx = sample_subgraph(graph, {1: True}, \
                 inp = {'mol': samp_target_nodes},  \
@@ -280,6 +276,7 @@ class PretrainClient(FLRecoRGNNClient):
         ori_list = {}
         target_type='mol'
         rel_stop_list = ['self']
+
         for source_type in edge_list[target_type]:
             ori_list[source_type] = {}
             for relation_type in edge_list[target_type][source_type]:
@@ -299,24 +296,25 @@ class PretrainClient(FLRecoRGNNClient):
             Adding feature nodes:
         '''
         feature = {}
+        node_cls = {}
         feature['mol'] = data.x[ori_idx['mol']]
+        node_cls['mol'] = data.node_type[ori_idx['mol']]
         n_target_nodes = len(feature[target_type])
         feature[target_type] = np.concatenate((feature[target_type], np.zeros([batch_size, feature[target_type].shape[1]])))
+
         for source_type in edge_list[target_type]:
             for relation_type in edge_list[target_type][source_type]:
                 el = []
                 for target_ser, source_ser in edge_list[target_type][source_type][relation_type]:
                     if target_ser < batch_size:
-                        if relation_type == 'self':
-                            el += [[target_ser + n_target_nodes, target_ser + n_target_nodes]]
-                        else:
-                            el += [[target_ser + n_target_nodes, source_ser]]
+                            el += [[target_ser + n_target_nodes,source_ser]]
                 if len(el) > 0:
                     edge_list[target_type][source_type][relation_type] = \
                         np.concatenate((edge_list[target_type][source_type][relation_type], el))
 
 
         rem_edge_lists = {}
+
         for source_type in rem_edge_list:
             rem_edge_lists[source_type] = {}
             for relation_type in rem_edge_list[source_type]:
@@ -324,7 +322,7 @@ class PretrainClient(FLRecoRGNNClient):
         del rem_edge_list
             
         return to_torch(feature, edge_list, graph), rem_edge_lists, ori_list, \
-                (n_target_nodes, n_target_nodes + batch_size)
+                (n_target_nodes, n_target_nodes + batch_size),node_cls
 
     def train(self,reset_optim=True):
         if reset_optim:
@@ -339,27 +337,28 @@ class PretrainClient(FLRecoRGNNClient):
         local_training_num = 0
 
         target_type='mol'
+        loss_cum = 0
         for epoch in range(self.args.local_epoch):
             for data in self.dataloader_dict["train"]:
                 self.optimizer.zero_grad()
-                data_sample, rem_edge_list, ori_edge_list, (start_idx, end_idx) = self.gpt_sample(data)
-                node_feature, node_type, edge_index, edge_type, node_dict, edge_dict = data_sample
+                data_sample, rem_edge_list, ori_edge_list, (start_idx, end_idx), node_cls = self.gpt_sample(data)
+                node_feature, node_type, edge_index, edge_type, node_dict = data_sample
                 data.x = node_feature
                 data.edge_index=edge_index
                 data.edge_type=edge_type
                 data = data.cuda()
-
                 node_emb = self.model(data,start_idx,end_idx)
                 loss_link = self.model.link_loss(node_emb, rem_edge_list, ori_edge_list, node_dict, target_type)
-                loss_attr = self.model.feat_loss(node_emb[start_idx : end_idx], node_feature[:data.data_index.shape[0]].cuda())
-                loss = loss_link[0] * (1 - self.args.attr_ratio) + loss_attr * self.args.attr_ratio
-
-                loss.backward()
+                loss_attr = self.model.feat_loss(node_emb[start_idx : end_idx], node_cls['mol'][:data.data_index.shape[0]].cuda())
+                loss =  loss_attr * self.args.attr_ratio + loss_link[0] * (1 - self.args.attr_ratio)
+                loss_cum += loss
+                if loss != 0:
+                    loss.backward()
                 self.optimizer.step()
 
                 local_training_steps += 1
                 local_training_num += data.data_index.shape[0] + loss_link[2]
-
+        print(loss_cum)
         return local_training_num, local_training_steps
     
     @torch.no_grad()
@@ -368,8 +367,8 @@ class PretrainClient(FLRecoRGNNClient):
         self.model.eval()
 
         for data in self.dataloader_dict[dataset]:
-            data_sample, rem_edge_list, ori_edge_list, (start_idx, end_idx) = self.gpt_sample(data)
-            node_feature, node_type, edge_index, edge_type, node_dict, edge_dict = data_sample
+            data_sample, rem_edge_list, ori_edge_list, (start_idx, end_idx), node_cls = self.gpt_sample(data)
+            node_feature, node_type, edge_index, edge_type, node_dict= data_sample
             data.x = node_feature
             data.edge_index=edge_index
             data.edge_type=edge_type
@@ -377,7 +376,7 @@ class PretrainClient(FLRecoRGNNClient):
             target_type='mol'
             node_emb = self.model(data,start_idx,end_idx)
             loss_link = self.model.link_loss(node_emb, rem_edge_list, ori_edge_list, node_dict, target_type)
-            loss_attr = self.model.feat_loss(node_emb[start_idx : end_idx], node_feature[:data.data_index.shape[0]].cuda())
+            loss_attr = self.model.feat_loss(node_emb[start_idx : end_idx], node_cls['mol'][:data.data_index.shape[0]].cuda())
             loss = loss_link[0] * (1 - self.args.attr_ratio) + loss_attr * self.args.attr_ratio
 
             for metric in self.metric_cals:
@@ -386,7 +385,7 @@ class PretrainClient(FLRecoRGNNClient):
                 elif metric == "node_loss":
                     self.metric_cals[metric].update(loss_attr.item())
                 elif metric == "edge_loss":
-                    self.metric_cals[metric].update(loss_link[0].item())
+                    self.metric_cals[metric].update(loss_link[0].item() if loss_link[0]!=0 else 0)
 
         rslt = {}
         for metric in self.metric_cals:
@@ -437,6 +436,29 @@ class PretrainClient(FLRecoRGNNClient):
 
         return rslt
 
+    def preprocess_data(self, data):
+        # add virtual node if pooling as virtual node
+        data = super().preprocess_data(data)
+
+        node_set = set()
+        for split in ["train", "val", "test"]:
+            for i in data[split]:
+                node_set = node_set | set([HashTensorWrapper(j) for j in list(i.x)])
+
+        node_set = list(set(node_set))
+        self.node_types = len(node_set)
+
+        logging.info(f"Client {self.uid} has {self.node_types} node type.")
+
+        node_type_dict = {i: cnt for cnt, i in enumerate(node_set)}
+        for split in ["train", "val", "test"]:
+            for i in data[split]:
+                i.node_type = torch.LongTensor(
+                    [node_type_dict[HashTensorWrapper(j)] for j in i.x]
+                )
+
+        return data
+
     def init_model(self):
         model_cls = get_model_cls(self.model_cls)
         self.model = model_cls(
@@ -450,7 +472,8 @@ class PretrainClient(FLRecoRGNNClient):
             num_bases=self.num_bases,
             base_agg=self.base_agg,
             root_weight=True,
-            mode='pretrain'
+            mode='pretrain',
+            node_types=self.node_types
         )
 
         if "classification" in self.task_type.lower():

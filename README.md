@@ -97,7 +97,7 @@ python main.py --clients 1  --clients-per-step 1 \
 --server-cls BaseServer --agg-cls NonUniformAgg \
 --global-optim-cls Adam --global-lr 0.001 \
 --local-optim-cls SGD --local-epoch 1 \
---max-steps 2 --local-lr 0.01 \
+--max-steps 100 --local-lr 0.01 \
 --pooling mean --max-depth 4 --hidden 256 \
 --model-cls rgcn --dropout 0.2 \
 --enable-finetune True --max-ft-steps 100 --ft-lr 0.001 \
@@ -105,5 +105,5 @@ python main.py --clients 1  --clients-per-step 1 \
 --param-filter-list encoder_atom encoder clf norms \
 --sample-node-num 1 --sample-depth 5 --sample-neighbor-number 5 \
 --attr-ratio 0.5 --client-config-file /home/v-chaozhang/CIKM2022/config/local_pretrain_per_client.yaml \
---out-path /home/v-chaozhang/model/pretrain
+--out-path /home/v-chaozhang/model/pretrain --local-batch-size 64 --num-bases 10
 ```

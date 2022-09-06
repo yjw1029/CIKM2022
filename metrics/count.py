@@ -18,5 +18,5 @@ class Count(BaseMetric):
             return self.all_count / self.all_cnt
 
     def clear(self):
-        self.all_mse = 0
+        self.all_count = 0
         self.all_cnt = 0

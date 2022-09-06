@@ -6,7 +6,7 @@ client_1:
     type: CrossEntropyLoss
   train:
     optimizer:
-      lr: 0.001
+      lr: 0.0001
   eval:
     metrics: ['sum_loss', 'node_loss', 'edge_loss']
     major_metric: 'sum_loss'

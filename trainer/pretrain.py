@@ -13,21 +13,23 @@ class PretrainTrainer(FedAvgTrainer):
     def run(self):
         self.pretrain()
         if self.args.enable_finetune:
-            self.clients[1].model.mode = "finetune"
+            for u_id in self.clients.keys():
+                self.clients[u_id].model.mode = "finetune"
+                self.clients[u_id].major_metric = 'error_rate'
             self.init_fintune_metrics()
-            self.clients[1].major_metric = 'error_rate'
             self.finetune()
         else:
             self.save_predictions_all_clients()
 
     def init_fintune_metrics(self):
-        self.clients[1].metric_cals = {}
-        for metric in ['error_rate', 'relative_impr']:
-            # compute relative_impr at the final step of evaluation
-            if metric == "relative_impr":
-                self.clients[1].metric_cals[metric] = None
-            else:
-                self.clients[1].metric_cals[metric] = get_metric(metric)()
+        for u_id in self.clients.keys():
+            self.clients[u_id].metric_cals = {}
+            for metric in ['error_rate', 'relative_impr']:
+                # compute relative_impr at the final step of evaluation
+                if metric == "relative_impr":
+                    self.clients[u_id].metric_cals[metric] = None
+                else:
+                    self.clients[u_id].metric_cals[metric] = get_metric(metric)()
 
 
     def pretrain(self):
