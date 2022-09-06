@@ -33,16 +33,15 @@ class RGNNClient(BaseClient):
         # add virtual node if pooling as virtual node
         data = super().preprocess_data(data)
 
-        edge_set = set()
+        edge_set = []
         for split in ["train", "val", "test"]:
             for i in data[split]:
                 if i.edge_attr is None:
                     break
-                edge_set = edge_set | set(
-                    [HashTensorWrapper(j) for j in list(i.edge_attr)]
-                )
+                edge_set.append(i.edge_attr)
+        
+        edge_set = torch.unique(torch.cat(edge_set, dim=0), dim=0)
 
-        edge_set = list(set(edge_set))
         self.num_relations = len(edge_set)
 
         logging.info(f"Client {self.uid} has {self.num_relations} relations.")
@@ -75,7 +74,7 @@ class RGNNClient(BaseClient):
                         )
                 else:
                     i.edge_type = torch.LongTensor(
-                        [edge_type_dict[HashTensorWrapper(j)] for j in i.edge_attr]
+                        torch.mm(i.edge_attr, edge_set.T)
                     )
 
         return data
