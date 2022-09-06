@@ -1,9 +1,8 @@
 from pathlib import Path
-from tkinter import N
-from tkinter.messagebox import NO
 import numpy as np
 import os
 import logging
+import math
 
 import torch
 from torch import nn
@@ -12,7 +11,7 @@ from torch_geometric.transforms import VirtualNode
 
 from model import get_model_cls
 from metrics import get_metric
-from utils import is_name_in_list
+from utils import is_name_in_list, split_chunks, merge_chunks
 
 
 class BaseClient:
@@ -80,6 +79,8 @@ class BaseClient:
         for split in ["train", "val", "test"]:
             data[split] = torch.load(data_path / f"{split}.pt")
 
+        data["train"], data["val"] = self.k_fold_split(data["train"], data["val"])
+
         self.in_channels = data["train"][0].x.shape[-1]
 
         data = self.preprocess_data(data)
@@ -96,6 +97,22 @@ class BaseClient:
         )
 
         self.dataloader_dict = dataloader_dict
+
+    def k_fold_split(self, train_data, val_data):
+        # apply k fold cross validation
+        if self.args.val_fold != 0:
+            train_data_chunks = split_chunks(train_data, self.args.k_fold - 1)
+            data_chunks = [val_data] + train_data_chunks
+            train_data = merge_chunks(
+                [
+                    data_chunks[i]
+                    for i in range(len(data_chunks))
+                    if i != self.args.val_fold
+                ]
+            )
+            val_data = data_chunks[self.args.val_fold]
+
+        return train_data, val_data
 
     def preprocess_data(self, data):
         if self.pooling == "virtual_node":

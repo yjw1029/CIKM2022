@@ -1,7 +1,8 @@
+import itertools
 import logging
 import sys
 import torch
-
+import math
 
 def setuplogger(args):
     root = logging.getLogger()
@@ -92,3 +93,15 @@ class EarlyStopper:
             return True
         else:
             return False
+
+def split_chunks(array, k):
+    array_size = len(array)
+    chunk_size = math.ceil(array / k)
+    data_chunks = [
+        array[x : x + chunk_size]
+        for x in range(0, array_size, chunk_size)
+    ]
+    return data_chunks
+
+def merge_chunks(array_list):
+    return list(itertools.chain(*array_list))
