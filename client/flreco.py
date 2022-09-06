@@ -24,6 +24,8 @@ class FLRecoClient(BaseClient):
         step_cnt = 0
         while step_cnt < self.args.reco_steps:
             for data in self.dataloader_dict["train"]:
+                if step_cnt >= self.args.reco_steps:
+                    break
                 self.optimizer.zero_grad()
                 data = data.cuda()
                 pred = self.model(data)
