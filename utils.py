@@ -96,7 +96,7 @@ class EarlyStopper:
 
 def split_chunks(array, k):
     array_size = len(array)
-    chunk_size = math.ceil(array / k)
+    chunk_size = math.ceil(array_size / k)
     data_chunks = [
         array[x : x + chunk_size]
         for x in range(0, array_size, chunk_size)

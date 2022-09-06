@@ -2,7 +2,6 @@ from pathlib import Path
 import numpy as np
 import os
 import logging
-import math
 
 import torch
 from torch import nn
@@ -111,7 +110,6 @@ class BaseClient:
                 ]
             )
             val_data = data_chunks[self.args.val_fold]
-
         return train_data, val_data
 
     def preprocess_data(self, data):
