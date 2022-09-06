@@ -92,12 +92,12 @@ python main.py --clients 1 2 3 4 5 6 7 8 11 12 --clients-per-step 10 \
 
 * Pretrain + FedReco 
 ```bash
-python main.py --clients 1  --clients-per-step 1 \
+python main.py --clients 1 2 3 4 5 6 7 8 9 10 11 12 13  --clients-per-step 13 \
 --trainer-cls PretrainTrainer --client-cls PretrainClient \
 --server-cls BaseServer --agg-cls NonUniformAgg \
 --global-optim-cls Adam --global-lr 0.001 \
 --local-optim-cls SGD --local-epoch 1 \
---max-steps 100 --local-lr 0.01 \
+--max-steps 1 --local-lr 0.01 \
 --pooling mean --max-depth 4 --hidden 256 \
 --model-cls rgcn --dropout 0.2 \
 --enable-finetune True --max-ft-steps 100 --ft-lr 0.001 \
@@ -105,5 +105,6 @@ python main.py --clients 1  --clients-per-step 1 \
 --param-filter-list encoder_atom encoder clf norms \
 --sample-node-num 1 --sample-depth 5 --sample-neighbor-number 5 \
 --attr-ratio 0.5 --client-config-file /home/v-chaozhang/CIKM2022/config/local_pretrain_per_client.yaml \
---out-path /home/v-chaozhang/model/pretrain --local-batch-size 64 --num-bases 10
+--out-path /home/v-chaozhang/model/pretrain --local-batch-size 64 --num-bases 10 --reco-steps 20 \
+--eval-steps 1 --param-filter-list "encoder_atom" "encoder" "clf" "comp" "norms" "init_emb" "attr_decoder" "matchers" "link_dec_dict" "neg_queue" --device 2
 ```

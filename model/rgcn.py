@@ -111,7 +111,7 @@ class RGCN_Net_Graph(torch.nn.Module):
         if node_types is not None :
             self.node_types = node_types
         if mode == 'pretrain':
-            self.params = nn.ModuleList()
+            self.matchers = nn.ModuleList()
             self.neg_queue_size = 5
             self.link_dec_dict = {}
             self.neg_queue = {}
@@ -121,7 +121,7 @@ class RGCN_Net_Graph(torch.nn.Module):
                 matcher = Matcher(hidden, hidden)
                 self.neg_queue['mol'][relation_type] = torch.FloatTensor([]).cuda()
                 self.link_dec_dict['mol'][relation_type] = matcher
-                self.params.append(matcher)
+                self.matchers.append(matcher)
             self.attr_decoder = MLP([hidden, self.node_types], batch_norm=False)
             self.init_emb = nn.Parameter(torch.randn(hidden))
             self.ce = nn.CrossEntropyLoss(reduction = 'none')

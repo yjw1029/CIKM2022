@@ -114,6 +114,8 @@ class FLRecoRGNNClient(RGNNClient):
                 loss.backward()
                 self.optimizer.step()
                 step_cnt += 1
+                if step_cnt >= self.args.reco_steps:
+                    break
         
         self.unfreeze_all_params()
 

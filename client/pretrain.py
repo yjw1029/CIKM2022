@@ -324,6 +324,32 @@ class PretrainClient(FLRecoRGNNClient):
         return to_torch(feature, edge_list, graph), rem_edge_lists, ori_list, \
                 (n_target_nodes, n_target_nodes + batch_size),node_cls
 
+    def reconstruct(self):
+        self.freeze_shared_params()
+        target_type='mol'
+        step_cnt = 0
+        while step_cnt < self.args.reco_steps:
+            for data in self.dataloader_dict["train"]:
+                self.optimizer.zero_grad()
+                data_sample, rem_edge_list, ori_edge_list, (start_idx, end_idx), node_cls = self.gpt_sample(data)
+                node_feature, node_type, edge_index, edge_type, node_dict = data_sample
+                data.x = node_feature
+                data.edge_index=edge_index
+                data.edge_type=edge_type
+                data = data.cuda()
+                node_emb = self.model(data,start_idx,end_idx)
+                loss_link = self.model.link_loss(node_emb, rem_edge_list, ori_edge_list, node_dict, target_type)
+                loss_attr = self.model.feat_loss(node_emb[start_idx : end_idx], node_cls['mol'][:data.data_index.shape[0]].cuda())
+                loss =  loss_attr * self.args.attr_ratio + loss_link[0] * (1 - self.args.attr_ratio)
+                if loss != 0:
+                    loss.backward()
+                self.optimizer.step()
+                step_cnt += 1
+                if step_cnt >= self.args.reco_steps:
+                    break
+        
+        self.unfreeze_all_params()
+
     def train(self,reset_optim=True):
         if reset_optim:
             self.reset_optimizer()
@@ -331,7 +357,7 @@ class PretrainClient(FLRecoRGNNClient):
         self.model = self.model.cuda()
         self.model.train()
 
-        #self.reconstruct()
+        self.reconstruct()
 
         local_training_steps = 0
         local_training_num = 0
@@ -358,7 +384,6 @@ class PretrainClient(FLRecoRGNNClient):
 
                 local_training_steps += 1
                 local_training_num += data.data_index.shape[0] + loss_link[2]
-        print(loss_cum)
         return local_training_num, local_training_steps
     
     @torch.no_grad()
