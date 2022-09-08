@@ -78,11 +78,11 @@ class BaseClient:
         for split in ["train", "val", "test"]:
             data[split] = torch.load(data_path / f"{split}.pt")
 
-        data["train"], data["val"] = self.k_fold_split(data["train"], data["val"])
-
         self.in_channels = data["train"][0].x.shape[-1]
 
         data = self.preprocess_data(data)
+
+        data["train"], data["val"] = self.k_fold_split(data["train"], data["val"])
 
         dataloader_dict = {}
         dataloader_dict["train"] = DataLoader(
@@ -176,7 +176,7 @@ class BaseClient:
         self.best_rslt, self.best_state_dict, self.best_rslt_str = None, None, None
 
     def update_best(self, eval_rslt=None, state_dict=None, eval_str=None):
-        if self.best_rslt is None or eval_rslt[self.major_metric] <= self.best_rslt:
+        if self.best_rslt is None or eval_rslt[self.major_metric] < self.best_rslt:
             self.best_rslt = eval_rslt[self.major_metric]
             self.best_state_dict = state_dict
             self.best_rslt_str = eval_str
@@ -297,7 +297,7 @@ class BaseClient:
         self.model.load_state_dict(state_dict_filtered, strict=False)
 
     @torch.no_grad()
-    def save_prediction(self, path, dataset="test"):
+    def save_prediction(self, path, dataset="test", suffix=""):
         self.model = self.model.cuda()
         self.model.eval()
 
@@ -332,7 +332,7 @@ class BaseClient:
             )
 
         # The format of submission file
-        with open(os.path.join(path, f"prediction_{dataset}.csv"), "a") as file:
+        with open(os.path.join(path, f"prediction_{dataset}{suffix}.csv"), "a") as file:
             for y_ind, y_pred in zip(y_inds, y_preds):
                 if "classification" in self.task_type.lower():
                     line = [self.uid, y_ind] + [y_pred]
@@ -341,7 +341,9 @@ class BaseClient:
                 file.write(",".join([str(_) for _ in line]) + "\n")
 
         # save soft predictions
-        with open(os.path.join(path, f"prediction_soft_{dataset}.csv"), "a") as file:
+        with open(
+            os.path.join(path, f"prediction_soft_{dataset}{suffix}.csv"), "a"
+        ) as file:
             for y_ind, y_pred, y_prob in zip(y_inds, y_preds, y_probs):
                 if "classification" in self.task_type.lower():
                     line = [self.uid, y_ind] + list(y_prob)
@@ -349,13 +351,13 @@ class BaseClient:
                     line = [self.uid, y_ind] + list(y_pred)
                 file.write(",".join([str(_) for _ in line]) + "\n")
 
-    def save_best_rslt(self, path):
-        with open(os.path.join(path, "eval_rslt.txt"), "a") as file:
+    def save_best_rslt(self, path, suffix=""):
+        with open(os.path.join(path, f"eval_rslt{suffix}.txt"), "a") as file:
             file.write(
                 f"client {self.uid} best evaluation result: {self.best_rslt_str} \n"
             )
 
-    def save_best_model(self, path):
-        model_path = os.path.join(path, f"model_{self.uid}.pt")
+    def save_best_model(self, path, suffix=""):
+        model_path = os.path.join(path, f"model_{self.uid}{suffix}.pt")
         torch.save(self.best_state_dict, model_path)
         logging.info(f"[+] Save the best model of client {self.uid} at {model_path}")

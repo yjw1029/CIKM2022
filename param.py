@@ -15,11 +15,8 @@ def str2bool(v):
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    # wandb initilization
-    parser.add_argument("--enable-wandb", type=str2bool, default=False)
-    parser.add_argument("--wandb-project", type=str, default="fedmoe", required=False)
-    parser.add_argument("--wandb-api-key", type=str, default="")
-    parser.add_argument("--wandb-run", type=str, default="", required=False)
+
+    parser.add_argument("--run-name", type=str, default="")
 
     parser.add_argument("--device", type=str, default="0")
     parser.add_argument("--seed", type=int, default=0)

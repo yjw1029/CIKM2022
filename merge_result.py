@@ -5,6 +5,19 @@ from datetime import datetime
 import pytz
 from collections import defaultdict
 import numpy as np
+import logging
+import sys
+
+
+def str2bool(v):
+    if isinstance(v, bool):
+        return v
+    if v.lower() in ("yes", "true", "t", "y", "1"):
+        return True
+    elif v.lower() in ("no", "false", "f", "n", "0"):
+        return False
+    else:
+        raise argparse.ArgumentTypeError("Boolean value expected.")
 
 
 def parse_args():
@@ -22,6 +35,12 @@ def parse_args():
 
     # ensemble topk
     parser.add_argument("--topk", type=int, default=None)
+
+    # weight
+    parser.add_argument("--use-weight", type=str2bool, default=False)
+
+    # soft
+    parser.add_argument("--soft", type=str2bool, default=False)
 
     return parser.parse_args()
 
@@ -57,7 +76,7 @@ def merge_best_rslt(out_path, sorted_rslt_tasks, save_path):
         selected_task = sorted_rslt_tasks[uid][0]
 
         impr_rslt, task_name = selected_task
-        with open(out_path / task_name / "prediction.csv", "r") as f:
+        with open(out_path / task_name / "prediction_test.csv", "r") as f:
             for line in f:
                 u, sid = line.split(",")[:2]
                 if int(u) == uid:
@@ -66,11 +85,11 @@ def merge_best_rslt(out_path, sorted_rslt_tasks, save_path):
         with open(save_path / "merged_task.txt", "a") as f:
             f.write(f"{uid}, {task_name}, {impr_rslt}\n")
 
-    with open(save_path / "prediction.csv", "w") as f:
+    with open(save_path / "prediction_test.csv", "w") as f:
         f.writelines(merged_lines)
 
 
-def merge_cls_rslt(lines, weights):
+def merge_cls_rslt(lines, weights, use_weight=False):
     # uid, sid, cls
     uids, sids, preds = [], [], []
     merged_pred = defaultdict(float)
@@ -78,7 +97,10 @@ def merge_cls_rslt(lines, weights):
         uid, sid, pred = line.strip("\n").split(",")
         uids.append(uid)
         sids.append(sid)
-        merged_pred[pred] += weights[cnt]
+        if use_weight:
+            merged_pred[pred] += weights[cnt]
+        else:
+            merged_pred[pred] += 1.0
 
     assert len(set(uid)) == 1 and len(set(sids)) == 1
     merged_pred = max(merged_pred.items(), key=lambda k: k[1])[0]
@@ -86,14 +108,45 @@ def merge_cls_rslt(lines, weights):
     return merged_line
 
 
-def merge_binary_cls(out_path, uid, selected_tasks):
+def softmax(x):
+    x = np.clip(x, -709.78, 709.78)
+    x = np.exp(x)
+    return x / np.sum(x)
+
+
+def merge_cls_rslt_soft(lines, weights, use_weight=False):
+    # uid, sid, cls
+    uids, sids = [], []
+    merged_pred = defaultdict(float)
+    for cnt, line in enumerate(lines):
+        uid, sid = line.strip("\n").split(",")[:2]
+        pred = softmax(
+            np.array(
+                [float(i) for i in line.strip("\n").split(",")[2:]], dtype=np.float64
+            )
+        )
+        uids.append(uid)
+        sids.append(sid)
+        for i, value in enumerate(pred):
+            if use_weight:
+                merged_pred[i] += value * weights[cnt]
+            else:
+                merged_pred[i] += value
+
+    assert len(set(uid)) == 1 and len(set(sids)) == 1
+    merged_pred = max(merged_pred.items(), key=lambda k: k[1])[0]
+    merged_line = f"{uid},{sid},{merged_pred}\n"
+    return merged_line
+
+
+def merge_binary_cls_soft(out_path, uid, selected_tasks, use_weight=False):
     task_lines = {}
     task_rslts = []
     test_rslts_dict = {}
     for selected_task in selected_tasks:
         impr_rslt, task_name = selected_task
         task_lines[selected_task] = {}
-        with open(out_path / task_name / "prediction.csv", "r") as f:
+        with open(out_path / task_name / "prediction_soft_test.csv", "r") as f:
             for line in f:
                 if int(line.split(",")[0]) == uid:
                     task_lines[selected_task][int(line.split(",")[1])] = line
@@ -104,11 +157,33 @@ def merge_binary_cls(out_path, uid, selected_tasks):
     for i in range(len(task_lines[selected_tasks[0]])):
         lines = [task_lines[t][i] for t in selected_tasks]
         weights = [test_rslts_dict[t] for t in selected_tasks]
-        merged_lines.extend(merge_cls_rslt(lines, weights))
+        merged_lines.extend(merge_cls_rslt_soft(lines, weights, use_weight))
     return merged_lines, task_rslts
 
 
-def merge_regression_rslt(lines, weights):
+def merge_binary_cls(out_path, uid, selected_tasks, use_weight=False):
+    task_lines = {}
+    task_rslts = []
+    test_rslts_dict = {}
+    for selected_task in selected_tasks:
+        impr_rslt, task_name = selected_task
+        task_lines[selected_task] = {}
+        with open(out_path / task_name / "prediction_test.csv", "r") as f:
+            for line in f:
+                if int(line.split(",")[0]) == uid:
+                    task_lines[selected_task][int(line.split(",")[1])] = line
+        test_rslts_dict[selected_task] = impr_rslt
+        task_rslts.append(f"{uid}, {task_name}, {impr_rslt}\n")
+
+    merged_lines = []
+    for i in range(len(task_lines[selected_tasks[0]])):
+        lines = [task_lines[t][i] for t in selected_tasks]
+        weights = [test_rslts_dict[t] for t in selected_tasks]
+        merged_lines.extend(merge_cls_rslt(lines, weights, use_weight))
+    return merged_lines, task_rslts
+
+
+def merge_regression_rslt(lines, weights, use_weight=False):
     # uid, sid, cls
     uids, sids, preds = [], [], []
     for line in lines:
@@ -122,20 +197,23 @@ def merge_regression_rslt(lines, weights):
     norm_weights = np.expand_dims(norm_weights / norm_weights.sum(), axis=-1)
 
     assert len(set(uids)) == 1 and len(set(sids)) == 1
-    merged_pred = np.sum(norm_weights * np.stack(preds, axis=0), axis=0)
+    if use_weight:
+        merged_pred = np.sum(norm_weights * np.stack(preds, axis=0), axis=0)
+    else:
+        merged_pred = np.mean(np.stack(preds, axis=0), axis=0)
     merged_pred = [uid, sid] + list(merged_pred)
     merged_line = ",".join([str(_) for _ in merged_pred]) + "\n"
     return merged_line
 
 
-def merge_regression(out_path, uid, selected_tasks):
+def merge_regression(out_path, uid, selected_tasks, use_weight=False):
     task_lines = {}
     task_rslts = []
     test_rslts_dict = {}
     for selected_task in selected_tasks:
         impr_rslt, task_name = selected_task
         task_lines[selected_task] = {}
-        with open(out_path / task_name / "prediction.csv", "r") as f:
+        with open(out_path / task_name / "prediction_test.csv", "r") as f:
             for line in f:
                 if int(line.split(",")[0]) == uid:
                     task_lines[selected_task][int(line.split(",")[1])] = line
@@ -146,25 +224,35 @@ def merge_regression(out_path, uid, selected_tasks):
     for i in range(len(task_lines[selected_tasks[0]])):
         lines = [task_lines[t][i] for t in selected_tasks]
         weights = [test_rslts_dict[t] for t in selected_tasks]
-        merged_lines.extend(merge_regression_rslt(lines, weights))
+        merged_lines.extend(merge_regression_rslt(lines, weights, use_weight))
 
     return merged_lines, task_rslts
 
 
-def merge_topk_rslt(out_path, sorted_rslt_tasks, save_path, k=5):
+def merge_topk_rslt(
+    out_path, sorted_rslt_tasks, save_path, k=5, use_weight=False, soft=False
+):
     merged_lines = []
     task_rslts = []
     for uid in range(1, 14):
         selected_tasks = sorted_rslt_tasks[uid][:k]
 
         if uid in [1, 2, 3, 4, 5, 6, 7, 8]:
-            merged_uid_lines, task_uid_rslts = merge_binary_cls(
-                out_path, uid, selected_tasks
-            )
+            if soft:
+                logging.info(f"soft merge client {uid} results.")
+                merged_uid_lines, task_uid_rslts = merge_binary_cls_soft(
+                    out_path, uid, selected_tasks, use_weight=use_weight
+                )
+            else:
+                logging.info(f"hard merge client {uid} results.")
+                merged_uid_lines, task_uid_rslts = merge_binary_cls(
+                    out_path, uid, selected_tasks, use_weight=use_weight
+                )
 
         if uid in [9, 10, 11, 12, 13]:
+            logging.info(f"average client {uid} results.")
             merged_uid_lines, task_uid_rslts = merge_regression(
-                out_path, uid, selected_tasks
+                out_path, uid, selected_tasks, use_weight=use_weight
             )
 
         merged_lines.extend(merged_uid_lines)
@@ -173,7 +261,7 @@ def merge_topk_rslt(out_path, sorted_rslt_tasks, save_path, k=5):
     with open(save_path / "merged_task.txt", "a") as f:
         f.writelines(task_rslts)
 
-    with open(save_path / "prediction.csv", "w") as f:
+    with open(save_path / "prediction_test.csv", "w") as f:
         f.writelines(merged_lines)
 
 
@@ -199,7 +287,15 @@ def merge(args):
     if args.topk is None:
         merge_best_rslt(out_path, sorted_rslt_tasks, save_path)
     else:
-        merge_topk_rslt(out_path, sorted_rslt_tasks, save_path, k=args.topk)
+        logging.info(f"best {args.topk} results.")
+        merge_topk_rslt(
+            out_path,
+            sorted_rslt_tasks,
+            save_path,
+            k=args.topk,
+            soft=args.soft,
+            use_weight=args.use_weight,
+        )
 
 
 def append(args):
@@ -218,19 +314,19 @@ def append(args):
     merged_lines = []
     for uid in range(1, 14):
         if uid not in args.append_clients:
-            with open(pre_merge_path / "prediction.csv", "r") as f:
+            with open(pre_merge_path / "prediction_test.csv", "r") as f:
                 for line in f:
                     u, sid = line.split(",")[:2]
                     if int(u) == uid:
                         merged_lines.append(line)
         else:
-            with open(append_src / "prediction.csv", "r") as f:
+            with open(append_src / "prediction_test.csv", "r") as f:
                 for line in f:
                     u, sid = line.split(",")[:2]
                     if int(u) == uid:
                         merged_lines.append(line)
 
-    with open(save_path / "prediction.csv", "w") as f:
+    with open(save_path / "prediction_test.csv", "w") as f:
         f.writelines(merged_lines)
 
     merged_rslts = []
@@ -249,8 +345,22 @@ def append(args):
         f.writelines(merged_rslts)
 
 
+def setuplogger():
+    root = logging.getLogger()
+    root.setLevel(logging.INFO)
+    handler = logging.StreamHandler(sys.stdout)
+    handler.setLevel(logging.INFO)
+    formatter = logging.Formatter(f"[%(levelname)s %(asctime)s] %(message)s")
+    handler.setFormatter(formatter)
+    root.addHandler(handler)
+
+
 if __name__ == "__main__":
     args = parse_args()
+
+    setuplogger()
+    logging.info(args)
+
     if args.mode == "merge":
         merge(args)
     if args.mode == "append":
