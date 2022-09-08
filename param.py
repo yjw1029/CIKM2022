@@ -128,4 +128,7 @@ def parse_args():
     parser.add_argument(
         "--attr-ratio", type=float, default=None
     )
+    parser.add_argument(
+        "--load_pretrain_path",type=str, default=None
+    )
     return parser.parse_args()

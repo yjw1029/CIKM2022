@@ -245,7 +245,6 @@ class RGCN_Net_Graph(torch.nn.Module):
             x = self.encoder(x)
         if self.mode == 'pretrain':
             x[start_idx : end_idx] = self.init_emb
-
         x = self.gnn((x, edge_index, edge_type))
         if self.mode == 'pretrain':
             return x

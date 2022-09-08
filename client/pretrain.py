@@ -333,6 +333,8 @@ class PretrainClient(FLRecoRGNNClient):
                 self.optimizer.zero_grad()
                 data_sample, rem_edge_list, ori_edge_list, (start_idx, end_idx), node_cls = self.gpt_sample(data)
                 node_feature, node_type, edge_index, edge_type, node_dict = data_sample
+                if edge_type.shape[0]==0:
+                    continue
                 data.x = node_feature
                 data.edge_index=edge_index
                 data.edge_type=edge_type
@@ -369,6 +371,8 @@ class PretrainClient(FLRecoRGNNClient):
                 self.optimizer.zero_grad()
                 data_sample, rem_edge_list, ori_edge_list, (start_idx, end_idx), node_cls = self.gpt_sample(data)
                 node_feature, node_type, edge_index, edge_type, node_dict = data_sample
+                if edge_type.shape[0]==0:
+                    continue
                 data.x = node_feature
                 data.edge_index=edge_index
                 data.edge_type=edge_type
@@ -394,6 +398,8 @@ class PretrainClient(FLRecoRGNNClient):
         for data in self.dataloader_dict[dataset]:
             data_sample, rem_edge_list, ori_edge_list, (start_idx, end_idx), node_cls = self.gpt_sample(data)
             node_feature, node_type, edge_index, edge_type, node_dict= data_sample
+            if edge_type.shape[0]==0:
+                continue
             data.x = node_feature
             data.edge_index=edge_index
             data.edge_type=edge_type

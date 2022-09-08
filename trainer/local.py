@@ -1,6 +1,8 @@
 import logging
 
 from .base import BaseTrainer
+import os
+import torch
 
 class LocalTrainer(BaseTrainer):
     def __init__(self, args):
@@ -8,7 +10,14 @@ class LocalTrainer(BaseTrainer):
         self.init_clients()
         # no server in local trainer
 
+    def load_model(self,load_path):
+        for uid in self.args.clients:
+            state_dict = torch.load(os.path.join(load_path,f'{uid}.pt'))
+            self.clients[uid].model.load_state_dict(state_dict,strict=False)
+
     def run(self):
+        if self.args.load_pretrain_path is not None:
+            self.load_model(self.args.load_pretrain_path)
         # local training clinet_by_client
         for uid in self.args.clients:
             best_rslt = None
