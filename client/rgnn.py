@@ -27,6 +27,8 @@ class RGNNClient(BaseClient):
             "rgcn",
             "rgin",
             "gine",
+            "rgat",
+            "film"
         ], f"Invalid model_cls for RGNNClient, get {self.model_cls}"
 
     def preprocess_data(self, data):
@@ -41,7 +43,10 @@ class RGNNClient(BaseClient):
                 edge_set = edge_set | set(
                     [HashTensorWrapper(j) for j in list(i.edge_attr)]
                 )
-
+        if i.edge_attr is None:
+            self.edge_dim=None
+        else:
+            self.edge_dim=i.edge_attr[0].shape[0]
         edge_set = list(set(edge_set))
         self.num_relations = len(edge_set)
 
@@ -92,6 +97,7 @@ class RGNNClient(BaseClient):
             pooling=self.pooling,
             num_bases=self.num_bases,
             base_agg=self.base_agg,
+            edge_dim=self.edge_dim
         )
 
         if "classification" in self.task_type.lower():

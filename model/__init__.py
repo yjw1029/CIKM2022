@@ -2,6 +2,8 @@ from .graph import GNN_Net_Graph
 from .rgcn import RGCN_Net_Graph
 from .rgin import RGIN_Net_Graph
 from .gine import GINE_Net_Graph
+from .rgat import RGAT_Net_Graph
+from .film import FiLM_Net_Graph
 from functools import partial
 
 def get_model_cls(model_cls):
@@ -11,4 +13,8 @@ def get_model_cls(model_cls):
         return RGIN_Net_Graph
     if model_cls == "gine":
         return GINE_Net_Graph
+    if model_cls == "rgat":
+        return RGAT_Net_Graph
+    if model_cls == "film":
+        return FiLM_Net_Graph
     return partial(GNN_Net_Graph, gnn=model_cls)
