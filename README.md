@@ -32,8 +32,8 @@ python main.py --trainer-cls LocalTrainer \
 ```bash
 python main.py --trainer-cls LocalTrainer --client-cls RGNNClient \
 --local-optim-cls Adam --max-steps 1000 --local-epoch 1 \
---dropout 0.2 --max-depth 4 --hidden 256 --clients-per-step 13 \
---model-cls rgin --pooling virtual_node
+--dropout 0.2 --max-depth 4 --hidden 256 --clients-per-step 3 \
+--model-cls rgin --pooling virtual_node --clients 2 3 5 --patient 30 --mask_node True
 ```
 
 * Base Decomposition

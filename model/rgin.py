@@ -18,6 +18,8 @@ from torch_geometric.typing import Adj, OptTensor
 from torch_sparse import SparseTensor, masked_select_nnz, matmul
 from .layers import MLP
 import copy
+import numpy as np
+import random
 
 try:
     from pyg_lib.ops import segment_matmul  # noqa
@@ -278,6 +280,7 @@ class RGIN_Net_Graph(torch.nn.Module):
         # Embedding (pre) layer
         self.encoder_atom = AtomEncoder(in_channels, hidden)
         self.encoder = Linear(in_channels, hidden)
+        self.init_emb = nn.Parameter(torch.randn(hidden))
         # GNN layer
         
         self.gnn = RGIN_Net(in_channels=hidden,
@@ -318,6 +321,12 @@ class RGIN_Net_Graph(torch.nn.Module):
         else:
             x = self.encoder(x)
 
+        if self.training:
+            size = x.shape[0]
+            random_mask = np.random.choice(size,int(size*0.1))
+            x[random_mask] = self.init_emb
+
+    
         x = self.gnn((x, edge_index, edge_type))
         x = self.pooling(x, batch)
         x = self.linear(x)
