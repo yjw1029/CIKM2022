@@ -15,6 +15,8 @@ class KFoldLocalTrainer(BaseTrainer):
             self.args.val_fold = val_fold
             self.init_clients()
 
+            logging.info(f"============ fold {val_fold} in all {self.args.k_fold} folds ===========")
+
             # local training clinet_by_client
             for uid in self.args.clients:
                 self.early_stopper.clear()
@@ -44,12 +46,12 @@ class KFoldLocalTrainer(BaseTrainer):
                         break
 
                 logging.info(
-                    f"[+] client_{uid} best rslt: {self.clients[uid].best_rslt_str}. saving checkpoints and predictions..."
+                    f"[+] client_{uid} in fold {val_fold} best rslt: {self.clients[uid].best_rslt_str}. saving checkpoints and predictions..."
                 )
                 self.clients[uid].load_model(self.clients[uid].best_state_dict)
-                self.clients[uid].save_prediction(self.args.out_path, dataset="val")
-                self.clients[uid].save_prediction(self.args.out_path, dataset="test")
-                self.clients[uid].save_best_rslt(self.args.out_path)
-                self.clients[uid].save_best_model(self.args.out_path)
-                logging.info(f"[-] finish saving predictions for client_{uid}")
+                self.clients[uid].save_prediction(self.args.out_path, dataset="val", suffix=f"_{val_fold}")
+                self.clients[uid].save_prediction(self.args.out_path, dataset="test", suffix=f"_{val_fold}")
+                self.clients[uid].save_best_rslt(self.args.out_path, suffix=f"_{val_fold}")
+                self.clients[uid].save_best_model(self.args.out_path, suffix=f"_{val_fold}")
+                logging.info(f"[-] finish saving predictions for client_{uid} in fold {val_fold}")
                 del self.clients[uid]
