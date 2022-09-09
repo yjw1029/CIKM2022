@@ -2,6 +2,8 @@ from pathlib import Path
 import numpy as np
 import os
 import logging
+import random
+import hashlib
 
 import torch
 from torch import nn
@@ -98,18 +100,18 @@ class BaseClient:
         self.dataloader_dict = dataloader_dict
 
     def k_fold_split(self, train_data, val_data):
-        # apply k fold cross validation
-        if self.args.val_fold != 0:
-            train_data_chunks = split_chunks(train_data, self.args.k_fold - 1)
-            data_chunks = [val_data] + train_data_chunks
-            train_data = merge_chunks(
-                [
-                    data_chunks[i]
-                    for i in range(len(data_chunks))
-                    if i != self.args.val_fold
-                ]
-            )
-            val_data = data_chunks[self.args.val_fold]
+        seed = hashlib.sha256(self.args.run_name.encode("utf-8")).hexdigest()
+        g = random.Random(seed=seed)
+
+        # random shufle data
+        data = train_data + val_data
+        g.shuffle(data)
+
+        data_chunks = split_chunks(data, self.args.k_fold)
+        train_data = merge_chunks(
+            [data_chunks[i] for i in range(len(data_chunks)) if i != self.args.val_fold]
+        )
+        val_data = data_chunks[self.args.val_fold]
         return train_data, val_data
 
     def preprocess_data(self, data):
