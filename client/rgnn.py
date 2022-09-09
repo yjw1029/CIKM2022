@@ -27,6 +27,7 @@ class RGNNClient(BaseClient):
             "rgcn",
             "rgin",
             "gine",
+            "mix"
         ], f"Invalid model_cls for RGNNClient, get {self.model_cls}"
 
     def preprocess_data(self, data):
