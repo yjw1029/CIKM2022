@@ -20,6 +20,7 @@ from .layers import MLP
 import copy
 import numpy as np
 import random
+from torch.nn import BatchNorm1d
 
 try:
     from pyg_lib.ops import segment_matmul  # noqa
@@ -220,6 +221,7 @@ class RGIN_Net(torch.nn.Module):
                  base_agg='decomposition'):
         super(RGIN_Net, self).__init__()
         self.convs = ModuleList()
+        self.norms = ModuleList()
         for i in range(max_depth):
             if i == 0:
                 self.convs.append(
@@ -274,13 +276,13 @@ class RGIN_Net_Graph(torch.nn.Module):
                  dropout=.0,
                  pooling='add',
                  num_bases=None,
-                 base_agg='decomposition'):
+                 base_agg='decomposition',
+                 edge_dim=None):
         super(RGIN_Net_Graph, self).__init__()
         self.dropout = dropout
         # Embedding (pre) layer
-        self.encoder_atom = AtomEncoder(in_channels, hidden)
-        self.encoder = Linear(in_channels, hidden)
-        self.init_emb = nn.Parameter(torch.randn(hidden))
+        self.encoder_atom = AtomEncoder(in_channels, hidden-1)
+        self.encoder = Linear(in_channels, hidden-1)
         # GNN layer
         
         self.gnn = RGIN_Net(in_channels=hidden,
@@ -308,6 +310,11 @@ class RGIN_Net_Graph(torch.nn.Module):
         self.linear = Sequential(Linear(hidden, hidden), torch.nn.ReLU())
         self.clf = Linear(hidden, out_channels)
 
+    def random_feature(self,x):
+        r = torch.rand(size=(len(x), 1)).to(x.device)
+        x = torch.cat([x, r], dim=-1)
+        return x
+
     def forward(self, data):
         if isinstance(data, Batch):
             x, edge_index, edge_type, batch = data.x, data.edge_index, data.edge_type, data.batch
@@ -320,11 +327,8 @@ class RGIN_Net_Graph(torch.nn.Module):
             x = self.encoder_atom(x)
         else:
             x = self.encoder(x)
-
-        if self.training:
-            size = x.shape[0]
-            random_mask = np.random.choice(size,int(size*0.1))
-            x[random_mask] = self.init_emb
+        
+        x = self.random_feature(x)
 
     
         x = self.gnn((x, edge_index, edge_type))
