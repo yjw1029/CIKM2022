@@ -98,7 +98,8 @@ class BaseClient:
             logging.info("[+] Apply virtual node. Preprocessing data")
             transform = VirtualNode()
             for split in ["train", "val", "test"]:
-                data[split] = list(map(transform, data[split]))
+                for i in range(self.args.virtual_node_num):
+                    data[split] = list(map(transform, data[split]))
         return data
 
     def init_model(self):

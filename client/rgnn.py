@@ -59,12 +59,14 @@ class RGNNClient(BaseClient):
                         # i.edge_type = torch.LongTensor(
                         #     [ 0 for _ in range(i.edge_index.shape[-1]) ]
                         # )
-                        virtual_node_index = i.x.shape[0] - 1
+                        virtual_node_index_list = []
+                        for v_num in range(self.args.virtual_node_num):
+                            virtual_node_index_list.append(i.x.shape[0] - v_num-1)
                         i.edge_type = torch.LongTensor(
                             [
-                                1
-                                if i.edge_index[0, j] == virtual_node_index
-                                or i.edge_index[1, j] == virtual_node_index
+                                1+virtual_node_index_list.index(i.edge_index[0, j] if i.edge_index[0, j] in virtual_node_index_list else i.edge_index[1, j])
+                                if i.edge_index[0, j] in virtual_node_index_list
+                                or i.edge_index[1, j] in virtual_node_index_list
                                 else 0
                                 for j in range(i.edge_index.shape[-1])
                             ]
@@ -92,6 +94,7 @@ class RGNNClient(BaseClient):
             pooling=self.pooling,
             num_bases=self.num_bases,
             base_agg=self.base_agg,
+            virtual_node_num=self.args.virtual_node_num
         )
 
         if "classification" in self.task_type.lower():

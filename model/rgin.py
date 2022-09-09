@@ -272,12 +272,14 @@ class RGIN_Net_Graph(torch.nn.Module):
                  dropout=.0,
                  pooling='add',
                  num_bases=None,
-                 base_agg='decomposition'):
+                 base_agg='decomposition',
+                 virtual_node_num=3):
         super(RGIN_Net_Graph, self).__init__()
         self.dropout = dropout
         # Embedding (pre) layer
         self.encoder_atom = AtomEncoder(in_channels, hidden)
         self.encoder = Linear(in_channels, hidden)
+        self.virtual_node_num=virtual_node_num
         # GNN layer
         
         self.gnn = RGIN_Net(in_channels=hidden,
@@ -319,7 +321,16 @@ class RGIN_Net_Graph(torch.nn.Module):
             x = self.encoder(x)
 
         x = self.gnn((x, edge_index, edge_type))
-        x = self.pooling(x, batch)
+        
+        if isinstance(self.pooling,VirtualNodePooling):
+            v_node = []
+            for i in range(self.virtual_node_num):
+                v_node.append(x[data.ptr[1:]-1-i])
+            v_node = torch.stack(v_node,1)
+            x = torch.sum(v_node,1)
+
+        else:
+            x = self.pooling(x, batch)
         x = self.linear(x)
         x = F.dropout(x, self.dropout, training=self.training)
         x = self.clf(x)

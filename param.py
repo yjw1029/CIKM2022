@@ -92,6 +92,10 @@ def parse_args():
     parser.add_argument(
         "--base-agg",type=str,default=None, choices=["decomposition", "moe"]
     )
+    parser.add_argument(
+        "--virtual_node_num",type=int, default=1
+    )
+
 
     # finetune 
     parser.add_argument(
