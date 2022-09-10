@@ -101,7 +101,7 @@ class BaseClient:
 
     def k_fold_split(self, train_data, val_data):
         seed = hashlib.sha256(self.args.run_name.encode("utf-8")).hexdigest()
-        g = random.Random(seed=seed)
+        g = random.Random(seed)
 
         # random shufle data
         data = train_data + val_data

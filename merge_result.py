@@ -36,7 +36,8 @@ def parse_args():
     parser.add_argument("--append-clients", type=int, nargs="+", default=None)
 
     # ensemble topk
-    parser.add_argument("--topk", type=int, default=None)
+    parser.add_argument("--topk_min", type=int, default=0)
+    parser.add_argument("--topk_max", type=int, default=None)
 
     # weight
     parser.add_argument("--use-weight", type=str2bool, default=False)
@@ -257,7 +258,8 @@ def merge_topk_rslt(
     out_path,
     sorted_rslt_tasks,
     save_path,
-    k=5,
+    k_min=0,
+    k_max=10,
     use_weight=False,
     soft=False,
     apply_softmax=True,
@@ -265,7 +267,7 @@ def merge_topk_rslt(
     merged_lines = []
     task_rslts = []
     for uid in clients:
-        selected_tasks = sorted_rslt_tasks[uid][:k]
+        selected_tasks = sorted_rslt_tasks[uid][k_min:k_max]
 
         if uid <= 8:
             if soft:
@@ -321,14 +323,16 @@ def merge(args):
     if args.topk is None:
         merge_best_rslt(out_path, sorted_rslt_tasks, save_path)
     else:
-        logging.info(f"best {args.topk} results.")
+        logging.info(f"best {args.topk_min} to {args.topk_max} results.")
         merge_topk_rslt(
             out_path,
             sorted_rslt_tasks,
             save_path,
-            k=args.topk,
+            k_min=args.topk_min,
+            k_max=args.topk_max,
             soft=args.soft,
             use_weight=args.use_weight,
+            apply_softmax=False,
         )
 
 
@@ -469,15 +473,16 @@ def kfold(args):
 
     merge_task_rlsts = merge_k_fold_rslt(task_rslts, args.k_fold)
     sorted_rslt_tasks = sort_task_by_impr(merge_task_rlsts)
-    if args.topk is None:
+    if args.topk_max is None:
         merge_best_rslt(out_path, sorted_rslt_tasks, save_path)
     else:
-        logging.info(f"best {args.topk} results.")
+        logging.info(f"best {args.topk_min} to {args.topk_max} results.")
         merge_topk_rslt(
             out_path,
             sorted_rslt_tasks,
             save_path,
-            k=args.topk,
+            k_min=args.topk_min,
+            k_max=args.topk_max,
             soft=args.soft,
             use_weight=args.use_weight,
             apply_softmax=False,
