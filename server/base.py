@@ -6,6 +6,12 @@ from model import get_model_cls
 
 
 class BaseServer:
+    """ Base Server
+    The central server in federated learning who is responsible for distributing current global model, aggregating local updates and updating global model.
+
+    Attributes:
+        args: Arguments
+    """
     def __init__(self, args):
         self.args = args
 
@@ -16,6 +22,7 @@ class BaseServer:
         self.clear_rslt()
 
     def init_model(self):
+        """ init global model """
         model_cls = get_model_cls(self.args.model_cls)
 
         # dummy input and output channel
@@ -31,12 +38,15 @@ class BaseServer:
             base_agg=self.args.base_agg
         )
 
+        # move global model to cuda device
         self.model = self.model.cuda()
 
     def init_aggregator(self):
+        """ init aggregator """
         self.agg = get_agg_cls(self.args.agg_cls)(self.args, self.model)
 
     def init_client_sampler(self):
+        """ init client sampler (sample clients when clients_per_step and clients do not match) """
         if self.args.clients_per_step < len(self.args.clients):
             g = random.Random(self.args.client_sample_seed)
             return functools.partial(
@@ -58,9 +68,11 @@ class BaseServer:
         self.clients_rslts = {}
 
     def collect(self, uid, client_rslt):
+        """ receive and collect uploaded local updateds from clients """
         self.clients_rslts[uid] = client_rslt
 
     def update(self, step):
+        """ update global model with aggregated local updates """
         agg_rslt = self.agg.aggregate(self.clients_rslts)
         self.clear_rslt()
 
