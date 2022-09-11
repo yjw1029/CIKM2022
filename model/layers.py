@@ -11,6 +11,13 @@ EMD_DIM = 200
 EDGE_EMB_DIM = 10
 
 class AtomEncoder(torch.nn.Module):
+    '''
+    encoder for atoms
+
+    Attributes:
+        in_channels (int): input channels.
+        hidden (int): hidden dim .
+    '''
     def __init__(self, in_channels, hidden):
         super(AtomEncoder, self).__init__()
         self.atom_embedding_list = torch.nn.ModuleList()
@@ -26,6 +33,13 @@ class AtomEncoder(torch.nn.Module):
         return x_embedding
 
 class EdgeEncoder(torch.nn.Module):
+    '''
+    encoder for edges
+    
+    Attributes:
+        edge_types (int): the number of edge types.
+        hidden (int): hidden dim .
+    '''
     def __init__(self, edge_types, hidden):
         super(EdgeEncoder, self).__init__()
         self.emb = torch.nn.Embedding(edge_types, hidden)
@@ -35,10 +49,21 @@ class EdgeEncoder(torch.nn.Module):
         return x_embedding
 
 class VirtualNodePooling(torch.nn.Module):
+    '''
+    pooling strategy using the virtual node which connects with all nodes.
+    '''
     def __init__(self):
         super(VirtualNodePooling, self).__init__()
 
     def forward(self, x, batch):
+        '''
+        Args:
+            x: data
+            batch: graph id in the batch for each node
+
+        Return:
+            the virtual node embedding (the last node of graphs)
+        '''
         batch_diff = batch - batch[(torch.arange(len(batch)) + 1) % len(batch)]
         last_indices = batch_diff != 0
         return x[last_indices]
@@ -78,6 +103,14 @@ class MLP(torch.nn.Module):
             lin.reset_parameters()
 
     def forward(self, x,relation=None):
+        '''
+        Args:
+            x: data
+            relation: edge type for data
+
+        Return:
+            output of MLP
+        '''
         if relation is None:
             x = self.linears[0](x)
         else:
@@ -97,7 +130,9 @@ class MLP(torch.nn.Module):
 
 
 class Linear_w_base(torch.nn.Module):
-
+    '''
+    Linear layer with base matrices
+    '''
     __constants__ = ['in_features', 'out_features']
     in_features: int
     out_features: int
@@ -137,6 +172,14 @@ class Linear_w_base(torch.nn.Module):
 
 
     def forward(self, input: Tensor,relation=None) -> Tensor:
+        '''
+        Args:
+            input: input data
+            relation: edge type for input data
+
+        Return:
+            output of Linear layer
+        '''
         if self.num_bases is None:
             return F.linear(input, self.weight, self.bias)
         else:

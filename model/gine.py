@@ -52,7 +52,15 @@ class OurGINEConv(MessagePassing):
 
     def forward(self, x: Union[Tensor, OptPairTensor], edge_index: Adj,
                 edge_attr: OptTensor = None, size: Size = None) -> Tensor:
-        """"""
+        '''
+        Args:
+            x: node feature
+            edge_index: the edges of graphs
+            edge_type: the type for each edge 
+
+        Return:
+            out: the output of GINEConv
+        '''
         if isinstance(x, Tensor):
             x: OptPairTensor = (x, x)
 

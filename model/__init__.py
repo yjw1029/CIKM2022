@@ -5,6 +5,13 @@ from .gine import GINE_Net_Graph
 from functools import partial
 
 def get_model_cls(model_cls):
+    '''
+    Args: 
+        model_cls: selected model type
+        
+    Return:
+        eval(model_cls): corresponding model
+    '''
     if model_cls == "rgcn":
         return RGCN_Net_Graph
     if model_cls == 'rgin':

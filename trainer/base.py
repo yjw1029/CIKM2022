@@ -22,5 +22,8 @@ class BaseTrainer:
             logging.info(f"[-] finish initing client_{uid}")
 
     def init_server(self):
+        '''
+        initialize server model
+        '''
         server_cls = get_server_cls(self.args.server_cls)
         self.server = server_cls(self.args)

@@ -4,6 +4,9 @@ import torch
 
 
 def setuplogger(args):
+    '''
+    set up logger
+    '''
     root = logging.getLogger()
     root.setLevel(logging.INFO)
     handler = logging.StreamHandler(sys.stdout)
@@ -13,10 +16,26 @@ def setuplogger(args):
     root.addHandler(handler)
 
 def is_name_in_list(name, list):
+    '''
+    Args:
+        name: parameter name
+        list: name list
+    Return:
+        judge whether the name is in the list
+    '''
     return any([pattern in name for pattern in list])
 
 @torch.no_grad()
 def grad_to_vector(model, server_model, filter_list=[]):
+    '''
+    Args:
+        model: local model
+        server_model: model in server
+        filter_list: parameters are not shared.
+
+    Return:
+        the vector formed by model gradient
+    '''
     vec = []
     server_state = server_model.state_dict()
     for name, param in model.named_parameters():
@@ -28,6 +47,17 @@ def grad_to_vector(model, server_model, filter_list=[]):
 
 @torch.no_grad()
 def vector_to_grad(vec, model, filter_list=[]):
+    '''
+    Args:
+        vec: gradient vector
+        model: model 
+        filter_list: parameters are not shared.
+
+    Return:
+        None
+    
+    pass the gradients to model gradients
+    '''
     pointer = 0
     for name, param in model.named_parameters():
         if param.requires_grad and not is_name_in_list(name, filter_list):
@@ -38,6 +68,15 @@ def vector_to_grad(vec, model, filter_list=[]):
 
 @torch.no_grad()
 def vector_to_dict(vec, model, filter_list=[]):
+    '''
+    Args:
+        vec: gradient vector
+        model: model 
+        filter_list: parameters are not shared.
+
+    Return:
+        change gradient from vector forms to dict forms. 
+    '''
     state_dict = {}
     pointer = 0
     for name, param in model.named_parameters():
@@ -50,6 +89,15 @@ def vector_to_dict(vec, model, filter_list=[]):
 
 @torch.no_grad()
 def dict_to_vector(state_dict, model, filter_list=[]):
+    '''
+    Args:
+        state_dict: gradient dict
+        model: model 
+        filter_list: parameters are not shared.
+
+    Return:
+        change gradient from dict forms to vector forms. 
+    '''
     vec = []
     for name, param in model.named_parameters():
         if param.requires_grad and not is_name_in_list(name, filter_list):

@@ -19,6 +19,12 @@ class FedNovaAgg(BaseAgg):
         )
 
     def aggregate(self, clients_rslts):
+        '''
+        Args:
+            clients_rslts: A dict with key of client id and value of local updates
+        Returns:
+            None
+        '''
         self.optimizer.zero_grad()
 
         clients_updates = []

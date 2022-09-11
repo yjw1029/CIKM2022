@@ -8,6 +8,9 @@ import numpy as np
 
 
 def parse_args():
+    '''
+    get arguments from command line
+    '''
     parser = argparse.ArgumentParser()
     parser.add_argument("--out-path", type=str, default="../amlt/cikm2022")
     parser.add_argument("--save-path", type=str, default=None)
@@ -27,6 +30,14 @@ def parse_args():
 
 
 def parse_eval_rslt(file_name):
+    '''
+    Args:
+        file_name: the file will be parsed
+    
+    Return:
+        clients_rslt: results for each client
+
+    '''
     with open(file_name, "r") as f:
         clients_rslt = {}
         for line in f:
@@ -38,6 +49,13 @@ def parse_eval_rslt(file_name):
 
 
 def sort_task_by_impr(task_rslts):
+    '''
+    Args:
+        task_rslts: all results from a given task
+
+    Return:
+        sorted_rslt_tasks: sorted results
+    '''
     sorted_rslt_tasks = {}
     for uid in range(1, 14):
         rslt_task_pairs = []
@@ -52,6 +70,13 @@ def sort_task_by_impr(task_rslts):
 
 
 def merge_best_rslt(out_path, sorted_rslt_tasks, save_path):
+    '''
+    Args:
+        out_path: the root path of all model results 
+        sorted_rslt_tasks: sorted results
+        save_path: the path of saving ensemble results
+
+    '''
     merged_lines = []
     for uid in range(1, 14):
         selected_task = sorted_rslt_tasks[uid][0]
@@ -71,6 +96,13 @@ def merge_best_rslt(out_path, sorted_rslt_tasks, save_path):
 
 
 def merge_cls_rslt(lines):
+    '''
+    Args:
+        lines: selected model predictions on test set
+    
+    Return:
+        merged_line: the ensemble prediction using votes
+    '''
     # uid, sid, cls
     uids, sids, preds = [], [], []
     for line in lines:
@@ -86,6 +118,15 @@ def merge_cls_rslt(lines):
 
 
 def merge_binary_cls(out_path, uid, selected_tasks):
+    '''
+    Args:
+        out_path: the root path of all model results 
+        uid: client id
+        selected_tasks: selected model results for ensembles
+    
+    Return:
+        merged_lines: the ensemble prediction using votes
+    '''
     task_files = []
     task_rslts = []
     for selected_task in selected_tasks:
@@ -103,7 +144,13 @@ def merge_binary_cls(out_path, uid, selected_tasks):
 
 
 def merge_regression_rslt(lines):
-    # uid, sid, cls
+    '''
+    Args:
+        lines: selected model predictions on test set
+
+    Return:
+        merged_line: the ensemble result using mean
+    '''
     uids, sids, preds = [], [], []
     for line in lines:
         uid, sid = line.strip("\n").split(",")[:2]
@@ -120,6 +167,15 @@ def merge_regression_rslt(lines):
 
 
 def merge_regression(out_path, uid, selected_tasks):
+    '''
+    Args:
+        out_path: the root path of all model results 
+        uid: client id
+        selected_tasks: selected model results for ensembles
+    
+    Return:
+        merged_lines: the ensemble prediction using mean
+    '''
     task_files = []
     task_rslts = []
     for selected_task in selected_tasks:
@@ -137,6 +193,14 @@ def merge_regression(out_path, uid, selected_tasks):
 
 
 def merge_topk_rslt(out_path, sorted_rslt_tasks, save_path, k=5):
+    '''
+    Args:
+        out_path: the root path of all model results 
+        sorted_rslt_tasks: sorted results
+        save_path: the path of saving ensemble results
+        k: top k
+
+    '''
     merged_lines = []
     task_rslts = []
     for uid in range(1, 14):
@@ -163,6 +227,9 @@ def merge_topk_rslt(out_path, sorted_rslt_tasks, save_path, k=5):
 
 
 def merge(args):
+    '''
+    merge all model results
+    '''
     if args.save_path is None:
         tz_NY = pytz.timezone("Asia/Shanghai")
         now = datetime.now(tz_NY)
@@ -188,6 +255,9 @@ def merge(args):
 
 
 def append(args):
+    '''
+    combine two merged results.
+    '''
     if args.save_path is None:
         tz_NY = pytz.timezone("Asia/Shanghai")
         now = datetime.now(tz_NY)

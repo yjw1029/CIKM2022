@@ -47,6 +47,23 @@ def masked_edge_index(edge_index, edge_mask):
         return masked_select_nnz(edge_index, edge_mask, layout='coo')
         
 class RGINConv(MessagePassing):
+    '''
+    RGINConv is based on GIN and considers edge attributes.
+
+    Arguments:
+        in_channels: dimension of input.
+        out_channels: dimension of output.
+        hidden: dimension of hidden units, default=64.
+        num_relations: the number of edge types.
+        num_bases: the number of base matrices
+        num_blocks: Optional[int] = None,
+        aggr: the strategy of aggregation
+        root_weight: whether the model adds transformed root node features to the output
+        bias: whether the model uses the bias
+        base_agg: str = the strategy of combining base matrices
+        comp: the weights of combining base matrices
+        MLP: the base matrices or matrices for different edge types
+    '''
     def __init__(
         self,
         in_channels: Union[int, Tuple[int, int]],
@@ -114,6 +131,9 @@ class RGINConv(MessagePassing):
         self.reset_parameters()
 
     def reset_parameters(self):
+        '''
+        reset the model parameters
+        '''
         if self.num_bases is not None:
             if self.base_agg == 'decomposition':
                 self.MLP.reset_parameters()
@@ -127,6 +147,15 @@ class RGINConv(MessagePassing):
         nn.init.zeros_(self.bias)
 
     def weighted_average(self,x,comp):
+        '''
+        Args:
+            x: data
+            comp: the weight of combining base models
+        Return:
+            y: the outputs of MoE
+
+        aggregate the results by MoE (Mixture of Experts)
+        '''
         y = None
         for i,mlp in enumerate(self.MLP):
             if y is None:
@@ -137,7 +166,15 @@ class RGINConv(MessagePassing):
 
     def forward(self, x: Union[OptTensor, Tuple[OptTensor, Tensor]],
                 edge_index: Adj, edge_type: OptTensor = None):
+        '''
+        Args:
+            x: node feature
+            edge_index: the edges of graphs
+            edge_type: the type for each edge 
 
+        Return:
+            out: the output of RGINConv
+        '''
         x_l: OptTensor = None
         if isinstance(x, tuple):
             x_l = x[0]
@@ -193,12 +230,18 @@ class RGINConv(MessagePassing):
 
 
     def message(self, x_j: Tensor, edge_type_ptr: OptTensor) -> Tensor:
+        '''
+        pass messages
+        '''
         if edge_type_ptr is not None:
             return segment_matmul(x_j, edge_type_ptr, self.weight)
 
         return x_j
 
     def message_and_aggregate(self, adj_t: SparseTensor, x: Tensor) -> Tensor:
+        '''
+        pass messages and aggregate messages
+        '''
         adj_t = adj_t.set_value(None, layout=None)
         return matmul(adj_t, x, reduce=self.aggr)
 
@@ -207,6 +250,18 @@ class RGINConv(MessagePassing):
                 f'{self.out_channels}, num_relations={self.num_relations})')
 
 class RGIN_Net(torch.nn.Module):
+    '''
+
+    Arguments:
+        in_channels: dimension of input.
+        out_channels: dimension of output.
+        hidden: dimension of hidden units, default=64.
+        num_relations: the number of edge types.
+        num_bases: the number of base matrices
+        base_agg: str = the strategy of combining base matrices
+        max_depth: layers of GNN
+        dropout (float): dropout ratio
+    '''
     def __init__(self,
                  in_channels,
                  out_channels,
@@ -306,6 +361,9 @@ class RGIN_Net_Graph(torch.nn.Module):
         self.clf = Linear(hidden, out_channels)
 
     def forward(self, data):
+        '''
+        the compute function of GNN model
+        '''
         if isinstance(data, Batch):
             x, edge_index, edge_type, batch = data.x, data.edge_index, data.edge_type, data.batch
         elif isinstance(data, tuple):
