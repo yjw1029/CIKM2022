@@ -35,12 +35,15 @@ class GNN_Net_Graph(torch.nn.Module):
                  dropout=.0,
                  gnn='gcn',
                  pooling='add',
+                 mask=False,
                  **kwargs):
         super(GNN_Net_Graph, self).__init__()
         self.dropout = dropout
         # Embedding (pre) layer
         self.encoder_atom = AtomEncoder(in_channels, hidden)
         self.encoder = Linear(in_channels, hidden)
+        self.mask = mask
+        self.init_emb = torch.nn.Parameter(torch.randn(hidden))
         # GNN layer
         if gnn == 'gcn':
             self.gnn = GCN_Net(in_channels=hidden,
@@ -98,14 +101,27 @@ class GNN_Net_Graph(torch.nn.Module):
         else:
             raise TypeError('Unsupported data type!')
 
-        if x.dtype == torch.int64:
-            x = self.encoder_atom(x)
+        if self.mask:
+            x = self.init_emb.unsqueeze(0).repeat(x.shape[0],1)
         else:
-            x = self.encoder(x)
+            x = self.init_emb.unsqueeze(0).repeat(x.shape[0],1)
+            # if x.dtype == torch.int64:
+            #     x = self.encoder_atom(x)
+            # else:
+            #     x = self.encoder(x)
+            # x = (x+self.init_emb.unsqueeze(0).repeat(x.shape[0],1))/2
+            
 
         x = self.gnn((x, edge_index))
         x = self.pooling(x, batch)
         x = self.linear(x)
         x = F.dropout(x, self.dropout, training=self.training)
         x = self.clf(x)
+        # if not self.mask: 
+        #     mask_x = self.gnn((mask_x,edge_index))
+        #     mask_x = self.pooling(mask_x,batch)
+        #     mask_x = self.linear(mask_x)
+        #     mask_x = F.dropout(mask_x, self.dropout, training=self.training)
+        #     mask_x = self.clf(mask_x)
+        #     return (x+mask_x)/2
         return x

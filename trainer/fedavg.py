@@ -3,13 +3,12 @@ import torch
 
 from .base import BaseTrainer
 from utils import grad_to_vector
+import os
 
 
 class FedAvgTrainer(BaseTrainer):
     def __init__(self, args):
         self.args = args
-        self.init_clients()
-        self.init_server()
 
     def run(self):
         self.fl_training()
@@ -20,37 +19,61 @@ class FedAvgTrainer(BaseTrainer):
             self.save_predictions_all_clients()
 
     def fl_training(self):
-        for step in range(self.args.max_steps):
-            # all clients participant in
-            server_state_dict = self.server.model.state_dict()
+        for val_fold in range(self.args.k_fold):
+            self.args.val_fold = val_fold
+            self.init_clients()
+            self.init_server()
+            self.best_model = {}
+            self.best_rslt = {}
+            self.best_epoch = {}
+            for u_id in self.clients.keys():
+                self.best_model[u_id] = None
+                self.best_rslt[u_id] = None
+                self.best_epoch[u_id] = 0
 
+            logging.info(f"============ fold {val_fold} in all {self.args.k_fold} folds ===========")
+            for step in range(self.args.max_steps):
+                # all clients participant in
+                server_state_dict = self.server.model.state_dict()
+
+                for uid in self.args.clients:
+                    self.clients[uid].load_model(
+                        server_state_dict, filter_list=self.args.param_filter_list
+                    )
+                    train_steps, train_num = self.clients[uid].train(reset_optim=True)
+                    update_vec = grad_to_vector(
+                        self.clients[uid].model,
+                        self.server.model,
+                        filter_list=self.args.param_filter_list,
+                    )
+
+                    rslt = dict(
+                        train_steps=train_steps, train_num=train_num, update_vec=update_vec
+                    )
+                    self.server.collect(uid, rslt)
+
+                self.server.update(step=step)
+
+                if step % self.args.eval_steps == 0:
+                    eval_rslt = self.evaluate_all_clients(step, load_server_model=True)
+                    for uid in self.args.clients:
+                        if self.best_rslt[uid] is None or eval_rslt[uid][self.clients[uid].major_metric] < self.best_rslt[uid]:
+                            self.best_rslt[uid] = eval_rslt[uid][self.clients[uid].major_metric]
+                            self.best_model[uid] = self.clients[uid].model.state_dict()
+                            self.best_epoch[uid] = step
+
+            # distributed model to client and evaluate at the final step
+            self.save_best_model(self.args.out_path,suffix=val_fold)
+            self.save_predictions_all_clients(suffix=val_fold)
+
+    def save_best_model(self,path,suffix=""):
+        os.makedirs(path, exist_ok=True)
+        with open(os.path.join(path, f"eval_rslt{suffix}.txt"), "w") as file:
             for uid in self.args.clients:
-                self.clients[uid].load_model(
-                    server_state_dict, filter_list=self.args.param_filter_list
+                file.write(
+                f"client {uid} best evaluation result: {(self.clients[uid].base_metric-self.best_rslt[uid])/self.clients[uid].base_metric} \n"
                 )
-                train_steps, train_num = self.clients[uid].train(reset_optim=True)
-                update_vec = grad_to_vector(
-                    self.clients[uid].model,
-                    self.server.model,
-                    filter_list=self.args.param_filter_list,
-                )
-
-                rslt = dict(
-                    train_steps=train_steps, train_num=train_num, update_vec=update_vec
-                )
-                self.server.collect(uid, rslt)
-
-            self.server.update(step=step)
-
-            if step % self.args.eval_steps == 0:
-                self.evaluate_all_clients(step, load_server_model=True)
-
-        # distributed model to client and evaluate at the final step
-        for uid in self.args.clients:
-            self.clients[uid].load_model(
-                server_state_dict, filter_list=self.args.param_filter_list
-            )
-        self.evaluate_all_clients(step)
+                torch.save(self.best_model[uid],os.path.join(path, f'{uid}_{suffix}.pt'))
 
 
     def evaluate_all_clients(self, step, load_server_model=False):
@@ -58,12 +81,15 @@ class FedAvgTrainer(BaseTrainer):
         
         server_state_dict = self.server.model.state_dict()
 
+        eval_all = {}
+
         for uid in self.args.clients:
             if load_server_model:
                 self.clients[uid].load_model(
                     server_state_dict, filter_list=self.args.param_filter_list
                 )
             eval_rslt = self.clients[uid].eval()
+            eval_all[uid] = eval_rslt
             if "relative_impr" in eval_rslt:
                 all_relative_impr.append(eval_rslt["relative_impr"])
 
@@ -80,11 +106,14 @@ class FedAvgTrainer(BaseTrainer):
             overall_impr = torch.mean(torch.stack(all_relative_impr))
             logging.info(f"step {step} overall relative_impr {overall_impr}")
 
+        return eval_all
 
-    def save_predictions_all_clients(self):
+
+    def save_predictions_all_clients(self,suffix=""):
         for uid in self.args.clients:
+            self.clients[uid].load_model(self.best_model[uid])
             logging.info(f"[+] saving predictions...")
-            self.clients[uid].save_prediction(self.args.out_path)
+            self.clients[uid].save_prediction(self.args.out_path,suffix=suffix)
             logging.info(f"[-] finish saving predictions for client_{uid}")
 
 

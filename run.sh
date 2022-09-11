@@ -1,9 +1,9 @@
 max_steps=1000
 seed=0
-pooling=mean
-hiddens=(256)
-gpu=2
-max_depths=(1 2 4 6 8 10)
+pooling=virtual_node
+hiddens=(32 64)
+gpu=0
+max_depths=(2 3 4 5)
 
 for max_depth in ${max_depths[@]}
 do
@@ -12,20 +12,21 @@ for hidden in ${hiddens[@]}
 do
 
 
-out_path=/home/v-chaozhang/model/film_cikm2022-fix_maxs_100_se_0_hi_${hidden}_maxd_${max_depth}_po_${pooling}
+out_path=/home/v-chaozhang/model/k_fold_maskallandallmask_cikm2022-fix_maxs_100_se_0_hi_${hidden}_maxd_${max_depth}_po_${pooling}
 echo ${out_path}
 echo ${gpu}
 
 python main.py \
---trainer-cls LocalTrainer --client-cls RGNNClient \
---server-cls BaseServer --agg-cls NonUniformAgg \
+--trainer-cls FedAvgTrainer --client-cls FLRecoClient \
+--server-cls BaseServer --agg-cls AttAgg \
 --global-optim-cls Adam --global-lr 0.001 \
---local-optim-cls Adam --local-epoch 1 \
---max-steps ${max_steps} --local-lr 0.01 \
+--local-optim-cls SGD --local-epoch 1 \
+--max-steps ${max_steps} --local-lr 0.001 \
 --pooling ${pooling} --max-depth ${max_depth} --hidden ${hidden} \
---model-cls film --dropout 0.2 \
+--model-cls gin --dropout 0.2 \
 --out-path ${out_path} --local-batch-size 64 \
---device ${gpu} --clients 2 3 5 6 7 11 12 --clients-per-step 7 --patient 30 &
+--device ${gpu} --clients 1 2 3 4 5 6 7 8 11 12 --clients-per-step 10 --mask-clients 1 3 4 5 6 7 8 11 12 --reco-steps 5 \
+--param-filter-list "encoder_atom" "encoder" "clf" "self_conv" "norms" --k-fold 5 --run-name "${gpu}" &
 
 
 gpu=`expr ${gpu} + 1`

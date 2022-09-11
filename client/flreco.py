@@ -116,6 +116,8 @@ class FLRecoRGNNClient(RGNNClient):
                 loss.backward()
                 self.optimizer.step()
                 step_cnt += 1
+                if step_cnt>=self.args.reco_steps:
+                    break
         
         self.unfreeze_all_params()
 
@@ -132,7 +134,7 @@ class FLRecoRGNNClient(RGNNClient):
         local_training_steps = 0
         local_training_num = 0
 
-        for epoch in range(self.args.local_epoch):
+        while local_training_steps < 3:
             for data in self.dataloader_dict["train"]:
                 self.optimizer.zero_grad()
                 data = data.cuda()
@@ -152,5 +154,8 @@ class FLRecoRGNNClient(RGNNClient):
 
                 local_training_steps += 1
                 local_training_num += label.shape[0]
+                if local_training_steps>=3:
+                    break
+
 
         return local_training_num, local_training_steps

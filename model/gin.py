@@ -68,12 +68,11 @@ class GIN_Net(torch.nn.Module):
                     GINConv(MLP([in_channels, hidden, hidden],
                                 batch_norm=True)))
             elif (i + 1) == max_depth:
-                self.convs.append(
-                    GINConv(
-                        MLP([hidden, hidden, out_channels], batch_norm=True)))
+                continue
             else:
                 self.convs.append(
                     GINConv(MLP([hidden, hidden, hidden], batch_norm=True)))
+        self.self_conv = GINConv(MLP([hidden, hidden, out_channels], batch_norm=True))
         self.dropout = dropout
 
     def forward(self, data):
@@ -86,7 +85,6 @@ class GIN_Net(torch.nn.Module):
 
         for i, conv in enumerate(self.convs):
             x = conv(x, edge_index)
-            if (i + 1) == len(self.convs):
-                break
             x = F.relu(F.dropout(x, p=self.dropout, training=self.training))
+        x = self.self_conv(x,edge_index)
         return x

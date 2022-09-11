@@ -16,6 +16,7 @@ def str2bool(v):
 def parse_args():
     parser = argparse.ArgumentParser()
     # wandb initilization
+    parser.add_argument("--run-name", type=str, default="")
     parser.add_argument("--enable-wandb", type=str2bool, default=False)
     parser.add_argument("--wandb-project", type=str, default="fedmoe", required=False)
     parser.add_argument("--wandb-api-key", type=str, default="")
@@ -61,6 +62,7 @@ def parse_args():
     parser.add_argument("--weight-decay", type=float, default=None)
 
     parser.add_argument("--clients", type=int, nargs="+", default=list(range(1, 14)))
+    parser.add_argument("--mask-clients", type=int, nargs="+", default=list(range(1, 14)))
     parser.add_argument("--clients-per-step", type=int, default=13)
     parser.add_argument(
         "--client-config-file", type=str, default="./config/local_train_per_client.yaml"
@@ -116,5 +118,6 @@ def parse_args():
     parser.add_argument(
         "--reco-steps", type=int, default=None
     )
+    parser.add_argument("--k-fold", type=int, default=None)
 
     return parser.parse_args()
