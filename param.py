@@ -18,11 +18,8 @@ def str2bool(v):
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    # wandb initilization
-    parser.add_argument("--enable-wandb", type=str2bool, default=False)
-    parser.add_argument("--wandb-project", type=str, default="fedmoe", required=False)
-    parser.add_argument("--wandb-api-key", type=str, default="")
-    parser.add_argument("--wandb-run", type=str, default="", required=False)
+
+    parser.add_argument("--run-name", type=str, default="")
 
     parser.add_argument("--device", type=str, default="0")
     parser.add_argument("--seed", type=int, default=0)
@@ -77,45 +74,27 @@ def parse_args():
 
     # model parameters
     parser.add_argument("--model-cls", type=str, default=None)
+    parser.add_argument("--max-depth", type=int, default=None)
+    parser.add_argument("--hidden", type=int, default=None)
+    parser.add_argument("--dropout", type=float, default=None)
+    parser.add_argument("--pooling", type=str, default=None)
+    parser.add_argument("--num-bases", type=int, default=None)
     parser.add_argument(
-        "--max-depth", type=int, default=None
-    )
-    parser.add_argument(
-        "--hidden", type=int, default=None
-    )
-    parser.add_argument(
-        "--dropout", type=float, default=None
-    )
-    parser.add_argument(
-        "--pooling", type=str, default=None
-    )
-    parser.add_argument(
-        "--num-bases",type=int, default=None
-    )
-    parser.add_argument(
-        "--base-agg",type=str,default=None, choices=["decomposition", "moe"]
+        "--base-agg", type=str, default=None, choices=["decomposition", "moe"]
     )
 
-    # finetune 
-    parser.add_argument(
-        "--enable-finetune", type=str2bool, default=False
-    )
-    parser.add_argument(
-        "--ft-local-optim-cls", type=str, default=None
-    )
-    parser.add_argument(
-        "--ft-lr", type=float, default=None
-    )
-    parser.add_argument(
-        "--max-ft-steps", type=int, default=None
-    )
-    parser.add_argument(
-        "--ft-local-epoch", type=int, default=None
-    )
+    # finetune
+    parser.add_argument("--enable-finetune", type=str2bool, default=False)
+    parser.add_argument("--ft-local-optim-cls", type=str, default=None)
+    parser.add_argument("--ft-lr", type=float, default=None)
+    parser.add_argument("--max-ft-steps", type=int, default=None)
+    parser.add_argument("--ft-local-epoch", type=int, default=None)
 
     # fl-reconstruction
-    parser.add_argument(
-        "--reco-steps", type=int, default=None
-    )
+    parser.add_argument("--reco-steps", type=int, default=None)
+
+    # kfold
+    parser.add_argument("--k-fold", type=int, default=4)
+    parser.add_argument("--val-fold", type=int, default=0)
 
     return parser.parse_args()

@@ -2,7 +2,7 @@ import logging
 import torch
 
 from .base import BaseTrainer
-from utils import grad_to_vector
+from utils import grad_to_vector, EarlyStopper
 
 
 class FedAvgTrainer(BaseTrainer):
@@ -10,6 +10,8 @@ class FedAvgTrainer(BaseTrainer):
         self.args = args
         self.init_clients()
         self.init_server()
+
+        self.early_stopper = EarlyStopper(self.args.patient)
 
     def run(self):
         """ Run FedAvg training
@@ -27,9 +29,10 @@ class FedAvgTrainer(BaseTrainer):
         if self.args.enable_finetune:
             self.finetune()
         else:
-            self.save_predictions_all_clients()
+            self.save_all_clients()
 
     def fl_training(self):
+<<<<<<< HEAD
         """ Conduct FedAvg training
 
         Iterate over self.args.max_steps rounds of FedAvg training with the following steps:
@@ -47,6 +50,9 @@ class FedAvgTrainer(BaseTrainer):
         Returns:
             None
         """
+=======
+        self.early_stopper.clear()
+>>>>>>> 1e1790210fd197698c2cead4a53666a078b55711
         for step in range(self.args.max_steps):
             # all clients participant in
             server_state_dict = self.server.model.state_dict()
@@ -75,7 +81,14 @@ class FedAvgTrainer(BaseTrainer):
             self.server.update(step=step)
 
             if step % self.args.eval_steps == 0:
-                self.evaluate_all_clients(step, load_server_model=True)
+                overall_impr = self.evaluate_all_clients(step, load_server_model=True)
+
+                need_stop = self.early_stopper.update(1 - overall_impr)
+                if need_stop:
+                    logging.info(
+                        f"[+] client_{uid} early stops due to worse performance than best result over {self.args.patient} steps"
+                    )
+                    break
 
         # distributed model to client and evaluate at the final step
         for uid in self.args.clients:
@@ -83,7 +96,6 @@ class FedAvgTrainer(BaseTrainer):
                 server_state_dict, filter_list=self.args.param_filter_list
             )
         self.evaluate_all_clients(step)
-
 
     def evaluate_all_clients(self, step, load_server_model=False):
         """ Evaluate current global model wtih local evaluation data of all clients
@@ -97,7 +109,7 @@ class FedAvgTrainer(BaseTrainer):
             None
         """
         all_relative_impr = []
-        
+
         server_state_dict = self.server.model.state_dict()
 
         for uid in self.args.clients:
@@ -106,8 +118,7 @@ class FedAvgTrainer(BaseTrainer):
                     server_state_dict, filter_list=self.args.param_filter_list
                 )
             eval_rslt = self.clients[uid].eval()
-            if "relative_impr" in eval_rslt:
-                all_relative_impr.append(eval_rslt["relative_impr"])
+            all_relative_impr.append(eval_rslt["relative_impr"])
 
             eval_str = "; ".join(
                 [f"{metric}: {value}" for metric, value in eval_rslt.items()]
@@ -117,19 +128,31 @@ class FedAvgTrainer(BaseTrainer):
             if "nan" in eval_str:
                 logging.info(f"client_{uid} gets nan. Stop training")
                 exit()
-        
-        if len(all_relative_impr) > 0:
-            overall_impr = torch.mean(torch.stack(all_relative_impr))
-            logging.info(f"step {step} overall relative_impr {overall_impr}")
 
+            self.clients[uid].update_best(
+                eval_rslt=eval_rslt,
+                state_dict=self.clients[uid].model.state_dict(),
+                eval_str=eval_str,
+            )
 
+        overall_impr = torch.mean(torch.stack(all_relative_impr))
+        logging.info(f"step {step} overall relative_impr {overall_impr}")
+        return overall_impr
+
+<<<<<<< HEAD
     def save_predictions_all_clients(self):
         """ Save prediction for all clients """
+=======
+    def save_all_clients(self):
+        logging.info(f"[+] saving checkpoints and predictions...")
+>>>>>>> 1e1790210fd197698c2cead4a53666a078b55711
         for uid in self.args.clients:
-            logging.info(f"[+] saving predictions...")
-            self.clients[uid].save_prediction(self.args.out_path)
+            self.clients[uid].load_model(self.clients[uid].best_state_dict)
+            self.clients[uid].save_prediction(self.args.out_path, dataset="val")
+            self.clients[uid].save_prediction(self.args.out_path, dataset="test")
+            self.clients[uid].save_best_rslt(self.args.out_path)
+            self.clients[uid].save_best_model(self.args.out_path)
             logging.info(f"[-] finish saving predictions for client_{uid}")
-
 
     def finetune(self):
         """ Local finetune in the end of federated training
@@ -143,37 +166,42 @@ class FedAvgTrainer(BaseTrainer):
             None
         """
         for uid in self.args.clients:
-            best_rslt = None
-            best_state_dict = None
-            best_rslt_str = None
-            no_imp_step = 0
-            pre_rslt = 1e8
+            # finetune from the best FL ckpt
+            self.clients[uid].load_model(self.clients[uid].best_state_dict)
+            self.early_stopper.clear()
 
             for epoch in range(self.args.max_ft_steps):
                 # local train 1 epoch
                 self.clients[uid].finetune(reset_optim=False)
                 eval_rslt = self.clients[uid].eval()
 
-                eval_str = "; ".join([f"{metric}: {value}" for metric, value in eval_rslt.items()])
+                eval_str = "; ".join(
+                    [f"{metric}: {value}" for metric, value in eval_rslt.items()]
+                )
                 logging.info(f"client_{uid} epoch {epoch}: {eval_str}")
 
-                if best_rslt is None or eval_rslt[self.clients[uid].major_metric] <= best_rslt:
-                    best_rslt = eval_rslt[self.clients[uid].major_metric]
-                    best_state_dict = self.clients[uid].model.state_dict()
-                    best_rslt_str = eval_str
-                
-                if self.args.patient is not None:
-                    no_imp_step += 1
-                    if pre_rslt >= eval_rslt[self.clients[uid].major_metric]:
-                        no_imp_step=0
-                    pre_rslt = eval_rslt[self.clients[uid].major_metric]
-                    if self.args.patient < no_imp_step:
-                        logging.info(f"[+] client_{uid} early stops due to worse performance than best result over {self.args.patient} steps")
-                        break
-            
-            logging.info(f"[+] client_{uid} best rslt: {best_rslt_str}. saving predictions...")
-            self.clients[uid].load_model(best_state_dict)
-            self.clients[uid].save_prediction(self.args.out_path)
-            self.clients[uid].save_best_rslt(uid, best_rslt_str, self.args.out_path)
+                self.clients[uid].update_best(
+                    eval_rslt=eval_rslt,
+                    state_dict=self.clients[uid].model.state_dict(),
+                    eval_str=eval_str,
+                )
+
+                need_stop = self.early_stopper.update(
+                    eval_rslt[self.clients[uid].major_metric]
+                )
+                if need_stop:
+                    logging.info(
+                        f"[+] client_{uid} early stops due to worse performance than best result over {self.args.patient} steps"
+                    )
+                    break
+
+            logging.info(
+                f"[+] client_{uid} best rslt: {self.clients[uid].best_rslt_str}. saving checkpoints and predictions..."
+            )
+            self.clients[uid].load_model(self.clients[uid].best_state_dict)
+            self.clients[uid].save_prediction(self.args.out_path, dataset="val")
+            self.clients[uid].save_prediction(self.args.out_path, dataset="test")
+            self.clients[uid].save_best_rslt(uid, self.args.out_path)
+            self.clients[uid].save_best_model(uid, self.args.out_path)
             logging.info(f"[-] finish saving predictions for client_{uid}")
             del self.clients[uid]

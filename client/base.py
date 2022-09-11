@@ -10,7 +10,7 @@ from torch_geometric.transforms import VirtualNode
 
 from model import get_model_cls
 from metrics import get_metric
-from utils import is_name_in_list
+from utils import is_name_in_list, split_chunks, merge_chunks
 
 
 class BaseClient:
@@ -69,6 +69,8 @@ class BaseClient:
         self.init_optimizer()
         self.init_metrics()
 
+        self.init_best()
+
     def init_model_param(self):
         """ init model parameters """
         self.model_cls = (
@@ -109,6 +111,8 @@ class BaseClient:
 
         data = self.preprocess_data(data)
 
+        data["train"], data["val"] = self.k_fold_split(data["train"], data["val"])
+
         dataloader_dict = {}
         dataloader_dict["train"] = DataLoader(
             data["train"], self.args.local_batch_size, shuffle=True
@@ -121,6 +125,21 @@ class BaseClient:
         )
 
         self.dataloader_dict = dataloader_dict
+
+    def k_fold_split(self, train_data, val_data):
+        # apply k fold cross validation
+        if self.args.val_fold != 0:
+            train_data_chunks = split_chunks(train_data, self.args.k_fold - 1)
+            data_chunks = [val_data] + train_data_chunks
+            train_data = merge_chunks(
+                [
+                    data_chunks[i]
+                    for i in range(len(data_chunks))
+                    if i != self.args.val_fold
+                ]
+            )
+            val_data = data_chunks[self.args.val_fold]
+        return train_data, val_data
 
     def preprocess_data(self, data):
         """ preprocess data when applying virtual node """
@@ -173,12 +192,29 @@ class BaseClient:
 
     def init_metrics(self):
         self.metric_cals = {}
+        assert (
+            "relative_impr" in self.client_config["eval"]["metrics"]
+        ), f"relative_impr not in metrics of client {self.uid}."
+
+        assert (
+            self.major_metric in self.client_config["eval"]["metrics"]
+        ), f"Major metric {self.major_metric} not in metrics of client {self.uid}."
+
         for metric in self.client_config["eval"]["metrics"]:
             # compute relative_impr at the final step of evaluation
             if metric == "relative_impr":
                 self.metric_cals[metric] = None
             else:
                 self.metric_cals[metric] = get_metric(metric)()
+
+    def init_best(self):
+        self.best_rslt, self.best_state_dict, self.best_rslt_str = None, None, None
+
+    def update_best(self, eval_rslt=None, state_dict=None, eval_str=None):
+        if self.best_rslt is None or eval_rslt[self.major_metric] < self.best_rslt:
+            self.best_rslt = eval_rslt[self.major_metric]
+            self.best_state_dict = state_dict
+            self.best_rslt_str = eval_str
 
     def train(self, reset_optim=True):
         """ Local training
@@ -314,14 +350,18 @@ class BaseClient:
         self.model.load_state_dict(state_dict_filtered, strict=False)
 
     @torch.no_grad()
+<<<<<<< HEAD
     def save_prediction(self, path):
         """ Save predictions """
+=======
+    def save_prediction(self, path, dataset="test", suffix=""):
+>>>>>>> 1e1790210fd197698c2cead4a53666a078b55711
         self.model = self.model.cuda()
         self.model.eval()
 
         preds = []
         data_indexes = []
-        for data in self.dataloader_dict["test"]:
+        for data in self.dataloader_dict[dataset]:
             data = data.cuda()
             pred = self.model(data)
             if "classification" in self.task_type.lower():
@@ -338,7 +378,6 @@ class BaseClient:
         y_inds, y_probs = data_indexes, np.concatenate(preds, axis=0)
         os.makedirs(path, exist_ok=True)
 
-        # TODO: more feasible, for now we hard code it for cikmcup
         y_preds = (
             np.argmax(y_probs, axis=-1)
             if "classification" in self.task_type.lower()
@@ -350,7 +389,8 @@ class BaseClient:
                 f"The length of the predictions {len(y_preds)} not equal to the samples {len(y_inds)}."
             )
 
-        with open(os.path.join(path, "prediction.csv"), "a") as file:
+        # The format of submission file
+        with open(os.path.join(path, f"prediction_{dataset}{suffix}.csv"), "a") as file:
             for y_ind, y_pred in zip(y_inds, y_preds):
                 if "classification" in self.task_type.lower():
                     line = [self.uid, y_ind] + [y_pred]
@@ -358,6 +398,7 @@ class BaseClient:
                     line = [self.uid, y_ind] + list(y_pred)
                 file.write(",".join([str(_) for _ in line]) + "\n")
 
+<<<<<<< HEAD
     def save_best_rslt(self, uid, eval_str, path):
         """ Save best result """
         with open(os.path.join(path, "eval_rslt.txt"), "a") as file:
@@ -368,3 +409,26 @@ class BaseClient:
         model_path = os.path.join(path, f"model_{uid}.pt")
         logging.info(f"[+] Save the model of client {uid} at {model_path}")
         torch.save(self.model.state_dict(), model_path)
+=======
+        # save soft predictions
+        with open(
+            os.path.join(path, f"prediction_soft_{dataset}{suffix}.csv"), "a"
+        ) as file:
+            for y_ind, y_pred, y_prob in zip(y_inds, y_preds, y_probs):
+                if "classification" in self.task_type.lower():
+                    line = [self.uid, y_ind] + list(y_prob)
+                else:
+                    line = [self.uid, y_ind] + list(y_pred)
+                file.write(",".join([str(_) for _ in line]) + "\n")
+
+    def save_best_rslt(self, path, suffix=""):
+        with open(os.path.join(path, f"eval_rslt{suffix}.txt"), "a") as file:
+            file.write(
+                f"client {self.uid} best evaluation result: {self.best_rslt_str} \n"
+            )
+
+    def save_best_model(self, path, suffix=""):
+        model_path = os.path.join(path, f"model_{self.uid}{suffix}.pt")
+        torch.save(self.best_state_dict, model_path)
+        logging.info(f"[+] Save the best model of client {self.uid} at {model_path}")
+>>>>>>> 1e1790210fd197698c2cead4a53666a078b55711

@@ -74,16 +74,19 @@ class RGNNClient(BaseClient):
         # add virtual node if pooling as virtual node
         data = super().preprocess_data(data)
 
-        edge_set = set()
+        edge_set = []
         for split in ["train", "val", "test"]:
             for i in data[split]:
                 if i.edge_attr is None:
                     break
-                edge_set = edge_set | set(
-                    [HashTensorWrapper(j) for j in list(i.edge_attr)]
-                )
+                edge_set.append(i.edge_attr)
 
-        edge_set = list(set(edge_set))
+        if len(edge_set) != 0:
+            edge_set = torch.unique(torch.cat(edge_set, dim=0), dim=0) + 1e-4
+            normed_edge_set = (
+                edge_set / (torch.norm(edge_set, dim=-1, keepdim=True))
+            ).transpose(0, 1)
+
         self.num_relations = len(edge_set)
 
         logging.info(f"Client {self.uid} has {self.num_relations} relations.")
@@ -92,14 +95,10 @@ class RGNNClient(BaseClient):
             # normal edge and edge connect with virtual node
             self.num_relations = 2
 
-        edge_type_dict = {i: cnt for cnt, i in enumerate(edge_set)}
         for split in ["train", "val", "test"]:
             for i in data[split]:
-                if len(edge_type_dict) == 0:
+                if len(edge_set) == 0:
                     if self.pooling == "virtual_node":
-                        # i.edge_type = torch.LongTensor(
-                        #     [ 0 for _ in range(i.edge_index.shape[-1]) ]
-                        # )
                         virtual_node_index = i.x.shape[0] - 1
                         i.edge_type = torch.LongTensor(
                             [
@@ -115,10 +114,13 @@ class RGNNClient(BaseClient):
                             [0 for _ in range(i.edge_index.shape[-1])]
                         )
                 else:
-                    i.edge_type = torch.LongTensor(
-                        [edge_type_dict[HashTensorWrapper(j)] for j in i.edge_attr]
+                    normed_edge_attr = (i.edge_attr + 1e-4) / (
+                        torch.norm(i.edge_attr + 1e-4, dim=-1, keepdim=True)
                     )
-
+                    i.edge_type = torch.argmax(
+                        torch.mm(normed_edge_attr, normed_edge_set), dim=-1
+                    ).long()
+    
         return data
 
     def init_model(self):

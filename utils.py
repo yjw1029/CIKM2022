@@ -1,7 +1,8 @@
+import itertools
 import logging
 import sys
 import torch
-
+import math
 
 def setuplogger(args):
     '''
@@ -15,6 +16,7 @@ def setuplogger(args):
     handler.setFormatter(formatter)
     root.addHandler(handler)
 
+
 def is_name_in_list(name, list):
     '''
     Args:
@@ -24,6 +26,7 @@ def is_name_in_list(name, list):
         judge whether the name is in the list
     '''
     return any([pattern in name for pattern in list])
+
 
 @torch.no_grad()
 def grad_to_vector(model, server_model, filter_list=[]):
@@ -103,3 +106,50 @@ def dict_to_vector(state_dict, model, filter_list=[]):
         if param.requires_grad and not is_name_in_list(name, filter_list):
             vec.append(state_dict[name].detach().view(-1))
     return torch.cat(vec)
+
+
+class EarlyStopper:
+    def __init__(self, patient):
+        self.patient = patient
+        self.pre_rslt = None
+        self.no_imp_step = 0
+
+    def clear(self):
+        self.pre_rslt = None
+        self.no_imp_step = 0
+
+    def update(self, curr_rslt):
+        """Update results of current step and decide whether need to stop.
+
+        Args:
+            curr_rslt (int or float): the result of current step
+
+        Returns:
+            bool: Whether need to stop. True for stopping.
+        """
+        if self.patient is None:
+            return False
+
+        self.no_imp_step += 1
+
+        if self.pre_rslt is None or self.pre_rslt >= curr_rslt:
+            self.no_imp_step = 0
+
+        self.pre_rslt = curr_rslt
+
+        if self.patient < self.no_imp_step:
+            return True
+        else:
+            return False
+
+def split_chunks(array, k):
+    array_size = len(array)
+    chunk_size = math.ceil(array_size / k)
+    data_chunks = [
+        array[x : x + chunk_size]
+        for x in range(0, array_size, chunk_size)
+    ]
+    return data_chunks
+
+def merge_chunks(array_list):
+    return list(itertools.chain(*array_list))
