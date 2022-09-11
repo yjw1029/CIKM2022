@@ -12,6 +12,16 @@ class FedAvgTrainer(BaseTrainer):
         self.init_server()
 
     def run(self):
+        """ Run FedAvg training
+
+        Conduct FedAvg training and finetune local models if args.enable_finetune.
+        Finally, save predictions for all clients.
+
+        Args:
+            self
+        Returns:
+            None
+        """
         self.fl_training()
 
         if self.args.enable_finetune:
@@ -20,15 +30,35 @@ class FedAvgTrainer(BaseTrainer):
             self.save_predictions_all_clients()
 
     def fl_training(self):
+        """ Conduct FedAvg training
+
+        Iterate over self.args.max_steps rounds of FedAvg training with the following steps:
+            Step 1. the server distributes the current global model to each client
+            Step 2. each client conducts local training on their own devices
+            Step 3. each client upload the local update cector to the server
+            Step 4. the server collects local updates from all clients
+            Step 5. the server updates the global model with aggregated update
+        
+        Evaluations are conducted for every args.eval_steps rounds.
+        The final global model will be evaluated with loca data.
+
+        Args:
+            self
+        Returns:
+            None
+        """
         for step in range(self.args.max_steps):
             # all clients participant in
             server_state_dict = self.server.model.state_dict()
 
             for uid in self.args.clients:
+                # Step 1
                 self.clients[uid].load_model(
                     server_state_dict, filter_list=self.args.param_filter_list
                 )
+                # Step 2
                 train_steps, train_num = self.clients[uid].train(reset_optim=True)
+                # Step 3
                 update_vec = grad_to_vector(
                     self.clients[uid].model,
                     self.server.model,
@@ -38,8 +68,10 @@ class FedAvgTrainer(BaseTrainer):
                 rslt = dict(
                     train_steps=train_steps, train_num=train_num, update_vec=update_vec
                 )
+                # Step 4
                 self.server.collect(uid, rslt)
 
+            # Step 5
             self.server.update(step=step)
 
             if step % self.args.eval_steps == 0:
@@ -54,6 +86,16 @@ class FedAvgTrainer(BaseTrainer):
 
 
     def evaluate_all_clients(self, step, load_server_model=False):
+        """ Evaluate current global model wtih local evaluation data of all clients
+
+        Args:
+            self: 
+            step: Current round
+            load_server_model: Whether load the current global model for evaluation. If False, evaluate with current local model
+
+        Returns:
+            None
+        """
         all_relative_impr = []
         
         server_state_dict = self.server.model.state_dict()
@@ -82,6 +124,7 @@ class FedAvgTrainer(BaseTrainer):
 
 
     def save_predictions_all_clients(self):
+        """ Save prediction for all clients """
         for uid in self.args.clients:
             logging.info(f"[+] saving predictions...")
             self.clients[uid].save_prediction(self.args.out_path)
@@ -89,6 +132,16 @@ class FedAvgTrainer(BaseTrainer):
 
 
     def finetune(self):
+        """ Local finetune in the end of federated training
+
+        For each client, finetune the current model for self.args.max_ft_steps.
+        Best results are recorded during finetuning and the training will early stop when getting worse performance over self.args.patient steps.
+
+        Args:
+            self
+        Returns:
+            None
+        """
         for uid in self.args.clients:
             best_rslt = None
             best_state_dict = None
