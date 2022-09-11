@@ -15,6 +15,14 @@ from utils import is_name_in_list
 
 class BaseClient:
     def __init__(self, args, client_config, uid):
+        '''
+        Args: 
+            args: training setting
+            client_config: client model configuration
+            uid: client id
+        
+        initialize client models
+        '''
         self.args = args
         self.client_config = client_config
         self.uid = uid
@@ -43,6 +51,9 @@ class BaseClient:
         self.init_metrics()
 
     def init_model_param(self):
+        '''
+        initialize model according to client_config or args.
+        '''
         self.model_cls = (
             self.args.model_cls
             if self.args.model_cls
@@ -70,6 +81,9 @@ class BaseClient:
         )
 
     def init_dataset(self):
+        '''
+        load datasets
+        '''
         data_path = Path(self.args.data_path) / "CIKM22Competition" / str(self.uid)
 
         data = {}
@@ -94,6 +108,9 @@ class BaseClient:
         self.dataloader_dict = dataloader_dict
 
     def preprocess_data(self, data):
+        '''
+        preprocess data using the virtual node
+        '''
         if self.pooling == "virtual_node":
             logging.info("[+] Apply virtual node. Preprocessing data")
             transform = VirtualNode()

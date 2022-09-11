@@ -4,21 +4,29 @@ from client.rgnn import RGNNClient
 from utils import is_name_in_list
 
 class FLRecoClient(BaseClient):
-    '''Refer to https://arxiv.org/abs/2102.03448.
-     Federated Reconstruction: Partially Local Federated Learning.
+    '''
+    Refer to https://arxiv.org/abs/2102.03448.
+    Federated Reconstruction: Partially Local Federated Learning.
     '''
     def freeze_shared_params(self):
-        # freeze global shared parameters
+        '''
+        freeze global shared parameters
+        '''
         for name, param in self.model.named_parameters():
             if not is_name_in_list(name, self.args.param_filter_list):
                 param.requires_grad = False
 
     def unfreeze_all_params(self):
-        # unfreeze all parameters
+        '''
+        unfreeze all parameters
+        '''
         for param in self.model.parameters():
             param.requires_grad = True
 
     def reconstruct(self):
+        '''
+        freeze global shared parameters and finetune local parameters on local data
+        '''
         self.freeze_shared_params()
 
         step_cnt = 0
@@ -47,6 +55,16 @@ class FLRecoClient(BaseClient):
 
         
     def train(self, reset_optim=True):
+        '''
+        Args: 
+            reset_optim: reset optimizer
+        
+        Return:
+            local_training_num: number of training samples for the local model
+            local_training_steps: number of training steps for local models
+
+        train local models using federated reconstruction.
+        '''
         if reset_optim:
             self.reset_optimizer()
 
@@ -84,17 +102,24 @@ class FLRecoClient(BaseClient):
 
 class FLRecoRGNNClient(RGNNClient):
     def freeze_shared_params(self):
-        # freeze global shared parameters
+        '''
+        freeze global shared parameters
+        '''
         for name, param in self.model.named_parameters():
             if not is_name_in_list(name, self.args.param_filter_list):
                 param.requires_grad = False
 
     def unfreeze_all_params(self):
-        # unfreeze all parameters
+        '''
+        unfreeze all parameters
+        '''
         for param in self.model.parameters():
             param.requires_grad = True
 
     def reconstruct(self):
+        '''
+        freeze global shared parameters and finetune local parameters on local data
+        '''
         self.freeze_shared_params()
 
         step_cnt = 0
@@ -121,6 +146,16 @@ class FLRecoRGNNClient(RGNNClient):
 
         
     def train(self, reset_optim=True):
+        '''
+        Args: 
+            reset_optim: reset optimizer
+        
+        Return:
+            local_training_num: number of training samples for the local model
+            local_training_steps: number of training steps for local models
+
+        train local models using federated reconstruction.
+        '''
         if reset_optim:
             self.reset_optimizer()
 
