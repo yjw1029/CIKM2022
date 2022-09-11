@@ -8,18 +8,56 @@ from model import get_model_cls
 
 
 class HashTensorWrapper:
+    '''
+    hash wrapper to distinguish different tensors.
+    '''
     def __init__(self, tensor):
         self.tensor = tensor
 
     def __hash__(self):
+        '''
+        Return:
+            the hash value of initialized tensor
+        '''
         return hash(self.tensor.numpy().tobytes())
 
     def __eq__(self, other):
+        '''
+        Args:
+            other: the input tensor
+
+        Return:
+            whether the input tensor equals the initialized tensor
+        '''
         return torch.all(self.tensor == other.tensor)
 
 
 class RGNNClient(BaseClient):
+    '''
+    RGNNClient considers edge attributes
+    Attributes:
+        args: Arguments
+        client_config: Client configurations, including configs for model, federated training, finetuning and evaluation
+        uid: Client id
+        task_type: Task type
+        out_channels: Number of out channels
+        lr: Learning rate
+        enable_finetune: True for local finetuning
+        ft_lr: If enable finetune, has finetuning learning rate
+        major_metric: Major metric
+        base_metric: Basic metric
+        num_bases: the number of base matrices
+        base_agg: the strategy of combining base matrices
+    '''
     def __init__(self, args, client_config, uid):
+        '''
+        Args: 
+            args: training setting
+            client_config: client model configuration
+            uid: client id
+        
+        initialize client models
+        '''
         self.num_bases = args.num_bases
         self.base_agg = args.base_agg
         super().__init__(args, client_config, uid)
@@ -30,6 +68,9 @@ class RGNNClient(BaseClient):
         ], f"Invalid model_cls for RGNNClient, get {self.model_cls}"
 
     def preprocess_data(self, data):
+        '''
+        preprocess data with edge attributes
+        '''
         # add virtual node if pooling as virtual node
         data = super().preprocess_data(data)
 
@@ -81,6 +122,9 @@ class RGNNClient(BaseClient):
         return data
 
     def init_model(self):
+        '''
+        initialize model and training criterion
+        '''
         model_cls = get_model_cls(self.model_cls)
         self.model = model_cls(
             self.in_channels,
