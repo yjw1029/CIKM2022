@@ -14,6 +14,25 @@ from utils import is_name_in_list
 
 
 class BaseClient:
+    """ Base client
+    Attributes:
+        args: Arguments
+        client_config: Client configurations, including configs for model, federated training, finetuning and evaluation
+        uid: Client id
+        task_type: Task type
+        out_channels: Number of out channels
+        lr: Learning rate
+        enable_finetune: True for local finetuning
+        ft_lr: If enable finetune, has finetuning learning rate
+        major_metric: Major metric
+        base_metric: Basic metric.
+
+    Examples:
+        metrics: ['error_rate', 'relative_impr']
+        major_metric: ['error_rate']
+        base: 0.289617 # The baseline performance
+
+    """
     def __init__(self, args, client_config, uid):
         self.args = args
         self.client_config = client_config
@@ -43,6 +62,7 @@ class BaseClient:
         self.init_metrics()
 
     def init_model_param(self):
+        """ init model parameters """
         self.model_cls = (
             self.args.model_cls
             if self.args.model_cls
@@ -70,6 +90,7 @@ class BaseClient:
         )
 
     def init_dataset(self):
+        """ init local datasets """
         data_path = Path(self.args.data_path) / "CIKM22Competition" / str(self.uid)
 
         data = {}
@@ -94,6 +115,7 @@ class BaseClient:
         self.dataloader_dict = dataloader_dict
 
     def preprocess_data(self, data):
+        """ preprocess data when applying virtual node """
         if self.pooling == "virtual_node":
             logging.info("[+] Apply virtual node. Preprocessing data")
             transform = VirtualNode()
@@ -102,6 +124,8 @@ class BaseClient:
         return data
 
     def init_model(self):
+        """ init model """
+        # define model parameters
         model_cls = get_model_cls(self.model_cls)
         self.model = model_cls(
             self.in_channels,
@@ -113,12 +137,14 @@ class BaseClient:
             pooling=self.pooling,
         )
 
+        # define loss function
         if "classification" in self.task_type.lower():
             self.criterion = nn.CrossEntropyLoss()
         elif "regression" in self.task_type.lower():
             self.criterion = nn.MSELoss()
 
     def init_optimizer(self):
+        """ init optimizer """
         self.optimizer_cls = eval(f"torch.optim.{self.args.local_optim_cls}")
         self.optimizer = self.optimizer_cls(self.model.parameters(), lr=self.lr)
 
@@ -129,6 +155,7 @@ class BaseClient:
             )
 
     def reset_optimizer(self):
+        """ reset optimizer when the arguments in function self.train() is reset_optim == True """
         self.optimizer = self.optimizer_cls(self.model.parameters(), lr=self.lr)
 
     def reset_ft_optimizer(self):
@@ -146,6 +173,14 @@ class BaseClient:
                 self.metric_cals[metric] = get_metric(metric)()
 
     def train(self, reset_optim=True):
+        """ Local training
+        Args:
+            self:
+            reset_optim: Whether to reset the optimizer and clean up 
+        Returns:
+            local_training_num: The number of iterated samples in local training
+            local_training_steps: The number of local optimization steps in local training 
+        """
         if reset_optim:
             self.reset_optimizer()
 
@@ -179,6 +214,14 @@ class BaseClient:
         return local_training_num, local_training_steps
 
     def finetune(self, reset_optim=True):
+        """ Local finetune
+        Args:
+            self:
+            reset_optim: Whether to reset the optimizer and clean up 
+        Returns:
+            local_training_num: The number of iterated samples in local finetuning
+            local_training_steps: The number of local optimization steps in local finetuning 
+        """
         if reset_optim:
             self.reset_ft_optimizer()
 
@@ -213,6 +256,7 @@ class BaseClient:
 
     @torch.no_grad()
     def eval(self, dataset="val"):
+        """ Local evaluation """
         self.model = self.model.cuda()
         self.model.eval()
 
@@ -249,6 +293,7 @@ class BaseClient:
         return rslt
 
     def load_model(self, state_dict, filter_list=[]):
+        """ Load model parameters except for parameters defined in the filter_list """
         if filter_list != []:
             state_dict_filtered = {
                 name: param
@@ -262,6 +307,7 @@ class BaseClient:
 
     @torch.no_grad()
     def save_prediction(self, path):
+        """ Save predictions """
         self.model = self.model.cuda()
         self.model.eval()
 
@@ -305,10 +351,12 @@ class BaseClient:
                 file.write(",".join([str(_) for _ in line]) + "\n")
 
     def save_best_rslt(self, uid, eval_str, path):
+        """ Save best result """
         with open(os.path.join(path, "eval_rslt.txt"), "a") as file:
             file.write(f"client {uid} best evaluation result: {eval_str} \n")
 
     def save_model(self, uid, path):
+        """ Save current model """
         model_path = os.path.join(path, f"model_{uid}.pt")
         logging.info(f"[+] Save the model of client {uid} at {model_path}")
         torch.save(self.model.state_dict(), model_path)
