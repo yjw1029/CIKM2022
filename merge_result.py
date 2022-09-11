@@ -25,7 +25,10 @@ def parse_args():
     parser.add_argument("--out-path", type=str, default="../amlt/cikm2022")
     parser.add_argument("--save-path", type=str, default=None)
     parser.add_argument(
-        "--mode", type=str, default="merge", choices=["merge", "append", "kfold"]
+        "--mode",
+        type=str,
+        default="merge",
+        choices=["merge", "append", "kfold", "kfold2"],
     )
     parser.add_argument("--clients", type=int, nargs="+", default=list(range(1, 14)))
 
@@ -163,7 +166,13 @@ def merge_cls_rslt_soft(
 
 
 def merge_binary_cls_soft(
-    out_path, uid, selected_tasks, use_weight=False, apply_softmax=True
+    out_path,
+    uid,
+    selected_tasks,
+    use_weight=False,
+    apply_softmax=True,
+    return_soft=False,
+    suffix=""
 ):
     task_lines = {}
     task_rslts = []
@@ -171,7 +180,7 @@ def merge_binary_cls_soft(
     for selected_task in selected_tasks:
         impr_rslt, task_name = selected_task
         task_lines[selected_task] = {}
-        with open(out_path / task_name / "prediction_soft_test.csv", "r") as f:
+        with open(out_path / task_name / f"prediction_soft_test{suffix}.csv", "r") as f:
             for line in f:
                 if int(line.split(",")[0]) == uid:
                     task_lines[selected_task][int(line.split(",")[1])] = line
@@ -183,7 +192,13 @@ def merge_binary_cls_soft(
         lines = [task_lines[t][i] for t in selected_tasks]
         weights = [test_rslts_dict[t] for t in selected_tasks]
         merged_lines.extend(
-            merge_cls_rslt_soft(lines, weights, use_weight, apply_softmax=apply_softmax)
+            merge_cls_rslt_soft(
+                lines,
+                weights,
+                use_weight,
+                apply_softmax=apply_softmax,
+                return_soft=return_soft,
+            )
         )
     return merged_lines, task_rslts
 
@@ -232,14 +247,14 @@ def merge_regression_rslt(lines, weights, use_weight=False):
     return merged_line
 
 
-def merge_regression(out_path, uid, selected_tasks, use_weight=False):
+def merge_regression(out_path, uid, selected_tasks, use_weight=False, suffix=""):
     task_lines = {}
     task_rslts = []
     test_rslts_dict = {}
     for selected_task in selected_tasks:
         impr_rslt, task_name = selected_task
         task_lines[selected_task] = {}
-        with open(out_path / task_name / "prediction_soft_test.csv", "r") as f:
+        with open(out_path / task_name / f"prediction_soft_test{suffix}.csv", "r") as f:
             for line in f:
                 if int(line.split(",")[0]) == uid:
                     task_lines[selected_task][int(line.split(",")[1])] = line
@@ -325,7 +340,7 @@ def merge(args):
             task_rslts[task_name] = parse_eval_rslt(task_path / "eval_rslt.txt")
 
     sorted_rslt_tasks = sort_task_by_impr(task_rslts)
-    if args.topk is None:
+    if args.topk_max is None:
         merge_best_rslt(out_path, sorted_rslt_tasks, save_path)
     else:
         logging.info(f"best {args.topk_min} to {args.topk_max} results.")
@@ -335,6 +350,7 @@ def merge(args):
             save_path,
             k_min=args.topk_min,
             k_max=args.topk_max,
+            k_indices=args.topk_indices,
             soft=args.soft,
             use_weight=args.use_weight,
             apply_softmax=False,
@@ -414,7 +430,7 @@ def merge_k_fold_rslt(task_rslts, k_fold):
     return merge_rslt_tasks
 
 
-def merge_k_fold_pred(task_path, k_fold):
+def merge_k_fold_pred(task_path, k_fold, soft=True):
     task_lines = {}
     for val_fold in range(k_fold):
         task_lines[val_fold] = {}
@@ -433,20 +449,36 @@ def merge_k_fold_pred(task_path, k_fold):
             for val_fold in range(k_fold)
             if val_fold in task_lines and keys[i] in task_lines[val_fold]
         ]
-        if uid <= 8:
-            merged_lines.extend(
-                merge_cls_rslt_soft(
-                    lines,
-                    weights=None,
-                    use_weight=False,
-                    apply_softmax=True,
-                    return_soft=True,
+        if soft:
+            if uid <= 8:
+                merged_lines.extend(
+                    merge_cls_rslt_soft(
+                        lines,
+                        weights=None,
+                        use_weight=False,
+                        apply_softmax=True,
+                        return_soft=True,
+                    )
                 )
-            )
+            else:
+                merged_lines.extend(
+                    merge_regression_rslt(lines, weights=None, use_weight=False)
+                )
         else:
-            merged_lines.extend(
-                merge_regression_rslt(lines, weights=None, use_weight=False)
-            )
+            if uid <= 8:
+                merged_lines.extend(
+                    merge_cls_rslt_soft(
+                        lines,
+                        weights=None,
+                        use_weight=False,
+                        apply_softmax=True,
+                        return_soft=False,
+                    )
+                )
+            else:
+                merged_lines.extend(
+                    merge_regression_rslt(lines, weights=None, use_weight=False)
+                )
 
     with open(task_path / "prediction_soft_test.csv", "w") as f:
         f.writelines(merged_lines)
@@ -500,6 +532,131 @@ def kfold(args):
         )
 
 
+def merge_topk_rslt_kfold2(
+    out_path,
+    sorted_rslt_folds,
+    save_path,
+    k_min=0,
+    k_max=10,
+    k_indices=None,
+    use_weight=False,
+    apply_softmax=True,
+):
+
+    for fold in sorted_rslt_folds:
+
+        merged_lines = []
+        task_rslts = []
+
+        sorted_rslt_tasks = sorted_rslt_folds[fold]
+        for uid in clients:
+            if k_max is None:
+                selected_tasks = [sorted_rslt_tasks[uid][i] for i in k_indices]
+            else:
+                selected_tasks = sorted_rslt_tasks[uid][k_min:k_max]
+
+            if uid <= 8:
+                logging.info(f"soft merge client {uid} results.")
+                merged_uid_lines, task_uid_rslts = merge_binary_cls_soft(
+                    out_path,
+                    uid,
+                    selected_tasks,
+                    use_weight=use_weight,
+                    apply_softmax=apply_softmax,
+                    return_soft=True,
+                    suffix=f"_{fold}"
+                )
+            else:
+                logging.info(f"average client {uid} results.")
+                merged_uid_lines, task_uid_rslts = merge_regression(
+                    out_path, uid, selected_tasks, use_weight=use_weight, suffix=f"_{fold}"
+                )
+
+            merged_lines.extend(merged_uid_lines)
+            task_rslts.extend(task_uid_rslts)
+
+        with open(save_path / f"merged_task_{fold}.txt", "a") as f:
+            f.writelines(task_rslts)
+
+        with open(save_path / f"prediction_soft_test_{fold}.csv", "w") as f:
+            f.writelines(merged_lines)
+
+    task_lines = {}
+    for val_fold in sorted_rslt_folds:
+        task_lines[val_fold] = {}
+        if (save_path / f"prediction_soft_test_{val_fold}.csv").exists():
+            with open(save_path / f"prediction_soft_test_{val_fold}.csv", "r") as f:
+                for line in f:
+                    uid = int(line.split(",")[0])
+                    task_lines[val_fold][(uid, int(line.split(",")[1]))] = line
+
+    merged_lines = []
+    keys = list(task_lines[0].keys())
+    for i in range(len(task_lines[0])):
+        uid, sid = keys[i]
+        lines = [
+            task_lines[val_fold][keys[i]]
+            for val_fold in sorted_rslt_folds
+            if val_fold in task_lines and keys[i] in task_lines[val_fold]
+        ]
+
+        if uid <= 8:
+            merged_lines.extend(
+                merge_cls_rslt_soft(
+                    lines,
+                    weights=None,
+                    use_weight=use_weight,
+                    apply_softmax=False,
+                    return_soft=False,
+                )
+            )
+        else:
+            merged_lines.extend(
+                merge_regression_rslt(lines, weights=None, use_weight=False)
+            )
+
+    with open(save_path / "prediction_test.csv", "w") as f:
+        f.writelines(merged_lines)
+
+
+def kfold2(args):
+    # sort each fold first and merg
+    if args.save_path is None:
+        tz_NY = pytz.timezone("Asia/Shanghai")
+        now = datetime.now(tz_NY)
+        current_time = now.strftime("%Y%m%d%H%M")
+        args.save_path = "../amlt/merge/merge_rslt_" + current_time
+
+    out_path = Path(args.out_path)
+    save_path = Path(args.save_path)
+
+    save_path.mkdir(exist_ok=True, parents=True)
+
+    task_rslts = {}
+    for i in range(args.k_fold):
+        task_rslts[i] = {}
+        for task_path in out_path.iterdir():
+            task_name = task_path.name
+            if (task_path / f"eval_rslt_{i}.txt").exists():
+                task_rslts[i][task_name] = parse_eval_rslt(
+                    task_path / f"eval_rslt_{i}.txt"
+                )
+
+    sorted_rslt_tasks = {}
+    for i in task_rslts:
+        sorted_rslt_tasks[i] = sort_task_by_impr(task_rslts[i])
+
+    merge_topk_rslt_kfold2(
+        out_path,
+        sorted_rslt_tasks,
+        save_path,
+        k_min=args.topk_min,
+        k_max=args.topk_max,
+        use_weight=args.use_weight,
+        apply_softmax=True,
+    )
+
+
 def setuplogger():
     root = logging.getLogger()
     root.setLevel(logging.INFO)
@@ -523,3 +680,5 @@ if __name__ == "__main__":
         append(args)
     if args.mode == "kfold":
         kfold(args)
+    if args.mode == "kfold2":
+        kfold2(args)
