@@ -1,5 +1,4 @@
 import argparse
-from genericpath import exists
 from pathlib import Path
 import re
 from datetime import datetime
@@ -38,6 +37,7 @@ def parse_args():
     # ensemble topk
     parser.add_argument("--topk_min", type=int, default=0)
     parser.add_argument("--topk_max", type=int, default=None)
+    parser.add_argument("--topk_indices", type=int, nargs="+", default=None)
 
     # weight
     parser.add_argument("--use-weight", type=str2bool, default=False)
@@ -47,6 +47,7 @@ def parse_args():
 
     # k_fold
     parser.add_argument("--k-fold", type=int, default=4)
+    parser.add_argument("--k-fold-avg", type=str2bool, default=False)
 
     return parser.parse_args()
 
@@ -260,6 +261,7 @@ def merge_topk_rslt(
     save_path,
     k_min=0,
     k_max=10,
+    k_indices=None,
     use_weight=False,
     soft=False,
     apply_softmax=True,
@@ -267,7 +269,10 @@ def merge_topk_rslt(
     merged_lines = []
     task_rslts = []
     for uid in clients:
-        selected_tasks = sorted_rslt_tasks[uid][k_min:k_max]
+        if k_max is None:
+            selected_tasks = [sorted_rslt_tasks[uid][i] for i in k_indices]
+        else:
+            selected_tasks = sorted_rslt_tasks[uid][k_min:k_max]
 
         if uid <= 8:
             if soft:
@@ -463,7 +468,9 @@ def kfold(args):
     for task_path in out_path.iterdir():
         task_name = task_path.name
 
-        merge_k_fold_pred(task_path, args.k_fold)
+        if args.k_fold_avg:
+            merge_k_fold_pred(task_path, args.k_fold)
+
         task_rslts[task_name] = {}
         for i in range(args.k_fold):
             if (task_path / f"eval_rslt_{i}.txt").exists():
@@ -473,16 +480,20 @@ def kfold(args):
 
     merge_task_rlsts = merge_k_fold_rslt(task_rslts, args.k_fold)
     sorted_rslt_tasks = sort_task_by_impr(merge_task_rlsts)
-    if args.topk_max is None:
+    if args.topk_max is None and args.topk_indices is None:
         merge_best_rslt(out_path, sorted_rslt_tasks, save_path)
     else:
-        logging.info(f"best {args.topk_min} to {args.topk_max} results.")
+        if args.topk_max is None:
+            logging.info(f"best {args.topk_indices} results.")
+        else:
+            logging.info(f"best {args.topk_min} to {args.topk_max} results.")
         merge_topk_rslt(
             out_path,
             sorted_rslt_tasks,
             save_path,
             k_min=args.topk_min,
             k_max=args.topk_max,
+            k_indices=args.topk_indices,
             soft=args.soft,
             use_weight=args.use_weight,
             apply_softmax=False,
