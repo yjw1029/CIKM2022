@@ -128,19 +128,16 @@ def merge_best_rslt(out_path, sorted_rslt_tasks, save_path):
         f.writelines(merged_lines)
 
 
-<<<<<<< HEAD
-def merge_cls_rslt(lines):
+def merge_cls_rslt(lines, weights, use_weight=False):
     '''
     Args:
         lines: selected model predictions on test set
+        weights: vote weights
+        use_weight: whether the ensemble uses weights to vote
     
     Return:
         merged_line: the ensemble prediction using votes
     '''
-=======
-def merge_cls_rslt(lines, weights, use_weight=False):
->>>>>>> 1e1790210fd197698c2cead4a53666a078b55711
-    # uid, sid, cls
     uids, sids, preds = [], [], []
     merged_pred = defaultdict(float)
     for cnt, line in enumerate(lines):
@@ -167,7 +164,17 @@ def softmax(x):
 def merge_cls_rslt_soft(
     lines, weights, use_weight=False, apply_softmax=True, return_soft=False
 ):
-    # uid, sid, cls
+    '''
+    Args:
+        lines:
+        weights: vote weights
+        use_weight: whether the ensemble uses weights to vote
+        apply_softmax: whether use softmax to soft predictions
+        return_soft: whether return soft predictions
+
+    Return:
+        merged_line: the ensemble predictions
+    '''
     uids, sids = [], []
     merged_pred = defaultdict(float)
     for cnt, line in enumerate(lines):
@@ -196,26 +203,24 @@ def merge_cls_rslt_soft(
     return merged_line
 
 
-<<<<<<< HEAD
-def merge_binary_cls(out_path, uid, selected_tasks):
+def merge_binary_cls_soft(
+    out_path, uid, selected_tasks, use_weight=False, apply_softmax=True
+):
     '''
     Args:
         out_path: the root path of all model results 
         uid: client id
         selected_tasks: selected model results for ensembles
-    
+        use_weight: whether the ensemble uses weights to vote
+        apply_softmax: whether use softmax to soft predictions
+
     Return:
         merged_lines: the ensemble prediction using votes
+        task_rslts: the performance of the selected models
     '''
-    task_files = []
-=======
-def merge_binary_cls_soft(
-    out_path, uid, selected_tasks, use_weight=False, apply_softmax=True
-):
     task_lines = {}
->>>>>>> 1e1790210fd197698c2cead4a53666a078b55711
     task_rslts = []
-    test_rslts_dict = {}
+    test_rslts_dict = {} 
     for selected_task in selected_tasks:
         impr_rslt, task_name = selected_task
         task_lines[selected_task] = {}
@@ -237,6 +242,17 @@ def merge_binary_cls_soft(
 
 
 def merge_binary_cls(out_path, uid, selected_tasks, use_weight=False):
+    '''
+    Args:
+        out_path: the root path of all model results 
+        uid: client id
+        selected_tasks: selected model results for ensembles
+        use_weight: whether the ensemble uses weights to vote
+
+    Return:
+        merged_lines: the ensemble prediction using votes
+        task_rslts: the performance of the selected models
+    '''
     task_lines = {}
     task_rslts = []
     test_rslts_dict = {}
@@ -258,19 +274,16 @@ def merge_binary_cls(out_path, uid, selected_tasks, use_weight=False):
     return merged_lines, task_rslts
 
 
-<<<<<<< HEAD
-def merge_regression_rslt(lines):
+def merge_regression_rslt(lines, weights, use_weight=False):
     '''
     Args:
         lines: selected model predictions on test set
+        weights: result weights
+        use_weight: whether the ensemble uses weights to compute results
 
     Return:
         merged_line: the ensemble result using mean
     '''
-=======
-def merge_regression_rslt(lines, weights, use_weight=False):
-    # uid, sid, cls
->>>>>>> 1e1790210fd197698c2cead4a53666a078b55711
     uids, sids, preds = [], [], []
     for line in lines:
         uid, sid = line.strip("\n").split(",")[:2]
@@ -291,22 +304,19 @@ def merge_regression_rslt(lines, weights, use_weight=False):
     return merged_line
 
 
-<<<<<<< HEAD
-def merge_regression(out_path, uid, selected_tasks):
+def merge_regression(out_path, uid, selected_tasks, use_weight=False):
     '''
     Args:
         out_path: the root path of all model results 
         uid: client id
         selected_tasks: selected model results for ensembles
-    
+        use_weight: whether the ensemble uses weights to compute results
+
     Return:
         merged_lines: the ensemble prediction using mean
+        task_rslts: the performance of the selected models
     '''
-    task_files = []
-=======
-def merge_regression(out_path, uid, selected_tasks, use_weight=False):
     task_lines = {}
->>>>>>> 1e1790210fd197698c2cead4a53666a078b55711
     task_rslts = []
     test_rslts_dict = {}
     for selected_task in selected_tasks:
@@ -328,17 +338,6 @@ def merge_regression(out_path, uid, selected_tasks, use_weight=False):
     return merged_lines, task_rslts
 
 
-<<<<<<< HEAD
-def merge_topk_rslt(out_path, sorted_rslt_tasks, save_path, k=5):
-    '''
-    Args:
-        out_path: the root path of all model results 
-        sorted_rslt_tasks: sorted results
-        save_path: the path of saving ensemble results
-        k: top k
-
-    '''
-=======
 def merge_topk_rslt(
     out_path,
     sorted_rslt_tasks,
@@ -348,7 +347,17 @@ def merge_topk_rslt(
     soft=False,
     apply_softmax=True,
 ):
->>>>>>> 1e1790210fd197698c2cead4a53666a078b55711
+    '''
+    Args:
+        out_path: the root path of all model results 
+        sorted_rslt_tasks: sorted results
+        save_path: the path of saving ensemble results
+        k: top k
+        use_weight: whether the ensemble uses weights to get results
+        soft: whether use the soft predictions
+        apply_softmax: whether use softmax to soft predictions
+
+    '''
     merged_lines = []
     task_rslts = []
     for uid in clients:
@@ -484,7 +493,14 @@ def append(args):
 
 
 def merge_k_fold_rslt(task_rslts, k_fold):
-
+    '''
+    Args:
+        task_rslts: selected models
+        k_fold: the number of folds
+    
+    Return:
+        merge_rslt_tasks: average performance of models for k folds 
+    '''
     merge_rslt_tasks = {}
     for task in task_rslts:
         merge_rslt_tasks[task] = {}
@@ -499,6 +515,13 @@ def merge_k_fold_rslt(task_rslts, k_fold):
 
 
 def merge_k_fold_pred(task_path, k_fold):
+    '''
+    Args:
+        task_path: the root path of the selected model 
+        k_fold: the number of folds
+    
+    get the mean predicions of models on k-fold
+    '''
     task_lines = {}
     for val_fold in range(k_fold):
         task_lines[val_fold] = {}
@@ -537,6 +560,9 @@ def merge_k_fold_pred(task_path, k_fold):
 
 
 def kfold(args):
+    '''
+    k-fold ensemble
+    '''
     if args.save_path is None:
         tz_NY = pytz.timezone("Asia/Shanghai")
         now = datetime.now(tz_NY)

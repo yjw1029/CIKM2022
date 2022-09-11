@@ -5,12 +5,18 @@ from utils import EarlyStopper
 
 
 class KFoldLocalTrainer(BaseTrainer):
+    '''
+    local train for k folds
+    '''
     def __init__(self, args):
         # no server in local trainer
         self.args = args
         self.early_stopper = EarlyStopper(self.args.patient)
 
     def run(self):
+        '''
+        local train for k folds
+        '''
         for val_fold in range(self.args.k_fold):
             self.args.val_fold = val_fold
             self.init_clients()

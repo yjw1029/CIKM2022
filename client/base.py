@@ -350,12 +350,13 @@ class BaseClient:
         self.model.load_state_dict(state_dict_filtered, strict=False)
 
     @torch.no_grad()
-<<<<<<< HEAD
-    def save_prediction(self, path):
-        """ Save predictions """
-=======
     def save_prediction(self, path, dataset="test", suffix=""):
->>>>>>> 1e1790210fd197698c2cead4a53666a078b55711
+        '''
+        Args:
+            path: path of saving predictions
+            dataset: dataset name
+            suffix: suffix
+        '''
         self.model = self.model.cuda()
         self.model.eval()
 
@@ -398,18 +399,6 @@ class BaseClient:
                     line = [self.uid, y_ind] + list(y_pred)
                 file.write(",".join([str(_) for _ in line]) + "\n")
 
-<<<<<<< HEAD
-    def save_best_rslt(self, uid, eval_str, path):
-        """ Save best result """
-        with open(os.path.join(path, "eval_rslt.txt"), "a") as file:
-            file.write(f"client {uid} best evaluation result: {eval_str} \n")
-
-    def save_model(self, uid, path):
-        """ Save current model """
-        model_path = os.path.join(path, f"model_{uid}.pt")
-        logging.info(f"[+] Save the model of client {uid} at {model_path}")
-        torch.save(self.model.state_dict(), model_path)
-=======
         # save soft predictions
         with open(
             os.path.join(path, f"prediction_soft_{dataset}{suffix}.csv"), "a"
@@ -422,13 +411,20 @@ class BaseClient:
                 file.write(",".join([str(_) for _ in line]) + "\n")
 
     def save_best_rslt(self, path, suffix=""):
+        '''
+        Args:
+            path: path of saving best model performance
+        '''
         with open(os.path.join(path, f"eval_rslt{suffix}.txt"), "a") as file:
             file.write(
                 f"client {self.uid} best evaluation result: {self.best_rslt_str} \n"
             )
 
     def save_best_model(self, path, suffix=""):
+        '''
+        Args:
+            path: path of saving best model parameters
+        '''
         model_path = os.path.join(path, f"model_{self.uid}{suffix}.pt")
         torch.save(self.best_state_dict, model_path)
         logging.info(f"[+] Save the best model of client {self.uid} at {model_path}")
->>>>>>> 1e1790210fd197698c2cead4a53666a078b55711

@@ -32,7 +32,6 @@ class FedAvgTrainer(BaseTrainer):
             self.save_all_clients()
 
     def fl_training(self):
-<<<<<<< HEAD
         """ Conduct FedAvg training
 
         Iterate over self.args.max_steps rounds of FedAvg training with the following steps:
@@ -50,9 +49,7 @@ class FedAvgTrainer(BaseTrainer):
         Returns:
             None
         """
-=======
         self.early_stopper.clear()
->>>>>>> 1e1790210fd197698c2cead4a53666a078b55711
         for step in range(self.args.max_steps):
             # all clients participant in
             server_state_dict = self.server.model.state_dict()
@@ -139,13 +136,9 @@ class FedAvgTrainer(BaseTrainer):
         logging.info(f"step {step} overall relative_impr {overall_impr}")
         return overall_impr
 
-<<<<<<< HEAD
-    def save_predictions_all_clients(self):
-        """ Save prediction for all clients """
-=======
     def save_all_clients(self):
+        """ Save predictions and models for all clients """
         logging.info(f"[+] saving checkpoints and predictions...")
->>>>>>> 1e1790210fd197698c2cead4a53666a078b55711
         for uid in self.args.clients:
             self.clients[uid].load_model(self.clients[uid].best_state_dict)
             self.clients[uid].save_prediction(self.args.out_path, dataset="val")

@@ -143,6 +143,14 @@ class EarlyStopper:
             return False
 
 def split_chunks(array, k):
+    '''
+    Args:
+        array: array
+        k: split array to k chunks
+    
+    Return:
+        data_chunks: chunks of data
+    '''
     array_size = len(array)
     chunk_size = math.ceil(array_size / k)
     data_chunks = [
