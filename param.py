@@ -36,12 +36,12 @@ def parse_args():
         default=os.getenv("AMLT_OUTPUT_DIR", "../model"),
     )
 
-    parser.add_argument("--trainer-cls", type=str, default=None)
-    parser.add_argument("--server-cls", type=str, default=None)
-    parser.add_argument("--client-cls", type=str, default=None)
-    parser.add_argument("--agg-cls", type=str, default=None)
-    parser.add_argument("--local-optim-cls", type=str, default=None)
-    parser.add_argument("--global-optim-cls", type=str, default=None)
+    parser.add_argument("--trainer-cls", type=str, default=None, help='Trainer class', choices=['FedAvgTrainer', 'LocalTrainer'])
+    parser.add_argument("--server-cls", type=str, default=None, choices=['BaseServer'])
+    parser.add_argument("--client-cls", type=str, default=None, choices=['BaseClient', 'FLRecoClient', 'RGNNClient'])
+    parser.add_argument("--agg-cls", type=str, default=None, choices=['NonUniformAgg'])
+    parser.add_argument("--local-optim-cls", type=str, default=None, choices=['Adam', 'SGD'])
+    parser.add_argument("--global-optim-cls", type=str, default=None, choices=['Adam', 'SGD'])
 
     parser.add_argument("--eval-steps", type=int, default=1)
     parser.add_argument("--train-log-steps", type=int, default=1)

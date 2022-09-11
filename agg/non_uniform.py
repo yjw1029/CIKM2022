@@ -4,6 +4,13 @@ from .base import BaseAgg
 from utils import vector_to_grad
 
 class NonUniformAgg(BaseAgg):
+    """ Basic aggregation strategy with non-uniform weights
+
+    Attributes:
+        args: Arguments
+        server_model: Global model
+        optimizer: Optimizer for updating the global model
+    """
     def __init__(self, args, server_model):
         self.args = args
         self.server_model = server_model 
@@ -12,6 +19,14 @@ class NonUniformAgg(BaseAgg):
         self.optimizer = optimizer_cls(self.server_model.parameters(), lr=self.args.global_lr)
 
     def aggregate(self, clients_rslts):
+        """ Aggregating function
+        First, clean up the optimizer's previous gradient. Then record collected local updates and number of local training samples. Finally, get the weighted aggregation update from all clients.
+        
+        Args:
+            clients_rslts: A dict with key of client id and value of local updates
+        Returns:
+            None
+        """
         self.optimizer.zero_grad()
 
         clients_updates = []
