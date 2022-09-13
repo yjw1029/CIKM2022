@@ -1,14 +1,26 @@
+# CIKM2022
 
-# Environment
+Python implementation of Team alpaca for CIKM 2022 AnalytiCup Competition: Federated Hetero-Task Learning. The final score on 9/11/2022 UTC is 64.3229.
+It is a pity that we do not find effective and efficient fl method, and our method is based on isolated training.
+
+## Environment
 registry: docker.io
 
 image: yjw1029/singularity:fs-val-202208150247
 
-# Command to run
+## Reimplementation
+The edge attributes are very essential for most clients.
+We train rgin, rgcn, gine and gin for different clients and essemble the their results for final scores.
+We introduce the details of reimplementation in [/REIMPLEMENT.md](REIMPLEMENT.md)
+
+
+
+## Commands to run 
 * Isolated Training
 ```bash
 python main.py --trainer-cls LocalTrainer --client-cls BaseClient \
-      --local-optim-cls Adam --max-steps 100 --local-epoch 1 --clients-num 13
+      --local-optim-cls Adam --max-steps 100 --local-epoch 1 \
+      --clients 1 2 3 4 5 6 7 8 9 10 11 12 13
 ```
 
 * FedAvg
