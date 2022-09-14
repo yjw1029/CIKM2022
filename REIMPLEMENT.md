@@ -190,5 +190,33 @@ python merge_result.py --mode kfold --out-path your/out/path --soft True --topk_
 
 ## Optimization for clients 2
 
-
 # Quick Check
+
+## Our final prediction file
+
+## Intermediate results
+You can find all intermediate results at [cikm2022-material.zip (107G)](https://resrchvc4data.blob.core.windows.net/cikm2022/cikm2022-material.zip).
+
+The directory structure is
+```
+cikm2022-materiral
+│
+└───cikm-9-10-13
+│   │
+│   └───job1
+│   |   │   eval_rslt_0.txt
+│   |   │   model_1_0.pt
+│   |   │   preditction_test_0.csv
+|   |   |___ ...
+|   |___...
+│   
+└───cikm-k-fold
+│   │
+│   └───job1
+│   |   │   eval_rslt_0.txt
+│   |   │   model_1_0.pt
+│   |   │   preditction_test_0.csv
+|   |   |___ ...
+|   |___...
+```
+where cikm-k-fold is the path of output files for clients 1-8 and 11-12 and cikm-9-10-13 is the path of output files for clients 9 10 and 13.
