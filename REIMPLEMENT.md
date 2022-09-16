@@ -193,6 +193,7 @@ python merge_result.py --mode kfold --out-path your/out/path --soft True --topk_
 # Quick Check
 
 ## Our final prediction file
+You can find all intermediate results at [prediction_test_best.csv](https://resrchvc4data.blob.core.windows.net/cikm2022/prediction_test_best.csv)
 
 ## Intermediate results
 You can find all intermediate results at [cikm2022-material.zip (107G)](https://resrchvc4data.blob.core.windows.net/cikm2022/cikm2022-material.zip).
